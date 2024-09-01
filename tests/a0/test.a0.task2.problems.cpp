@@ -4,6 +4,7 @@
 #include <iostream>
 #include <numeric>
 #include <vector>
+#include <string>
 
 // A0T2: Problem 1
 // TODO: Uncomment the function below by removing the surrounding /* and */, and run in test mode.
@@ -11,19 +12,20 @@
 //       compilation errors go away, and move onto the next problem.
 // Hint: there are 3 parts that need to be fixed.
 
-/*
+
 Test test_a0_task2_problems_print("a0.task2.problems.print", []() {
-    string str = "str";
+    std::string str = "str";
     int integer = 0;
     float flt = 0.1f;
 
 	// Most common ways of printing a line of text in Scotty3D are:
-    printf("\n1. printf with format specifiers such as string %s, interger %d, and float %f.\n", str.c_str(), integer, flt)
-    
-    std::cour << "2. std::cout and std::endl with multiple insertion operators like " 
+    //printf("\n1. printf with format specifiers such as string %s, interger %d, and float %f.\n", str.c_str(), integer, flt);
+    printf("\n1. printf with format specifiers such as string %s, interger %d, and float %f.\n", str.c_str(), integer, flt);
+
+    std::cout << "2. std::cout and std::endl with multiple insertion operators like " 
               << str + ", " << integer << ", and " << flt << "." << std::endl;
 });
-*/
+
 
 // A0T2: Problem 2
 // TODO: We want to pass our target 2D vector through a filter called helper, 
@@ -46,13 +48,18 @@ Test test_a0_task2_problems_numerical("a0.task2.problems.numerical", []() {
     int j = 0;
     for (auto& v : target) {
         for (auto& i : v) {
-            int y = j >= int(modifiers.size()) ? 0 : modifiers.at(j);
+            int y = j > int(modifiers.size()-1) ? 0 : modifiers.at(j);
             i = helper(i, y) ? i : 0;
             j++;
         }
     }
 
     std::vector<std::vector<int>> expected = {{1, 2, 0}, {4, 5, 0}, {0, 8, 9}};
+    for (auto& v : target) {
+        for (auto& i : v) {
+        std:: cout << "i: " << i << std::endl;
+        }
+    }
 
     if (Test::differs(target[0], expected[0]) || Test::differs(target[1], expected[1]) || Test::differs(target[2], expected[2]))
         throw Test::error("The vector does not match the expected result.");
