@@ -43,23 +43,18 @@ Test test_a0_task2_problems_numerical("a0.task2.problems.numerical", []() {
     // Ex) let x = 1, y = 4. y / 3 = 4 / 3 = 1.333 > 1, so x < y / 3. Return true.
 
     int factor = 3;
-    auto helper = [&](int x, int y) { return x < (y / factor); };
+    auto helper = [&](int x, int y) { return x < ((float)y / factor); };
 
     int j = 0;
     for (auto& v : target) {
         for (auto& i : v) {
-            int y = j > int(modifiers.size()-1) ? 0 : modifiers.at(j);
+            int y = j >= int(modifiers.size()) ? 0 : modifiers.at(j);
             i = helper(i, y) ? i : 0;
             j++;
         }
     }
 
     std::vector<std::vector<int>> expected = {{1, 2, 0}, {4, 5, 0}, {0, 8, 9}};
-    for (auto& v : target) {
-        for (auto& i : v) {
-        std:: cout << "i: " << i << std::endl;
-        }
-    }
 
     if (Test::differs(target[0], expected[0]) || Test::differs(target[1], expected[1]) || Test::differs(target[2], expected[2]))
         throw Test::error("The vector does not match the expected result.");
@@ -79,7 +74,7 @@ Test test_a0_task2_problems_vector("a0.task2.problems.vector", []() {
     }
 
     // Use iterator to grab the last element of the vector
-    int last_element = *one_to_ten.end();
+    int last_element = *(one_to_ten.end()-1);
 
     // The last element is surely a 10... right?
     int expected = 10;
@@ -106,7 +101,7 @@ Test test_a0_task2_problems_boolean("a0.task2.problems.boolean", []() {
         for (size_t j = 0; j < vec2.size(); j++) {
             for (size_t k = 0; k < vec3.size(); k++) {
                 // Check if the numbers at indices i,j,k respectively are the same
-                if ((vec1.at(i) == vec2.at(j)) == vec3.at(k)) count++;
+                if ((vec1.at(i) == vec2.at(j)) && (vec1.at(i) == vec3.at(k))) count++;
             }
         }
     }
