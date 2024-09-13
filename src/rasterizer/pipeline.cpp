@@ -348,6 +348,16 @@ void Pipeline<p, P, flags>::clip_triangle(
  *
  * If you wish to work in fixed point, check framebuffer.h for useful information about the framebuffer's dimensions.
  */
+
+//static float computeLength(Vec2 vec)
+//{
+//	return sqrtf(vec.x * vec.x + vec.y * vec.y);
+//}
+//
+//static bool exit_from_diamond(Vec2 pixel_center, Vec2 line_point) {
+//	return abs(line_point.x - pixel_center.x) + abs(line_point.y - pixel_center.y) < 0.5f;
+//}
+
 template<PrimitiveType p, class P, uint32_t flags>
 void Pipeline<p, P, flags>::rasterize_line(
 	ClippedVertex const& va, ClippedVertex const& vb,
@@ -357,19 +367,61 @@ void Pipeline<p, P, flags>::rasterize_line(
 	}
 	// A1T2: rasterize_line
 
-	// TODO: Check out the block comment above this function for more information on how to fill in
-	// this function!
-	// The OpenGL specification section 3.5 may also come in handy.
+	//auto computeLength = [](Vec2 vec) -> float {
+	//	return sqrtf(vec.x * vec.x + vec.y * vec.y);
+	//	};
 
-	{ // As a placeholder, draw a point in the middle of the line:
-		//(remove this code once you have a real implementation)
-		Fragment mid;
-		mid.fb_position = (va.fb_position + vb.fb_position) / 2.0f;
-		mid.attributes = va.attributes;
-		mid.derivatives.fill(Vec2(0.0f, 0.0f));
-		emit_fragment(mid);
+	// lambda function
+	
+	auto exit_from_diamond = [](Vec2 pixel_center, Vec2 line_point) -> bool {
+		return abs(line_point.x - pixel_center.x) + abs(line_point.y - pixel_center.y) < 0.5f;
+		};
+
+	Vec2 a = Vec2(va.fb_position.x, va.fb_position.y);
+	Vec2 b = Vec2(vb.fb_position.x, vb.fb_position.y);
+	
+	float delta_x = std::abs(b.x - a.x);
+	float delta_y = std::abs(b.y - a.y);
+
+	int i, j; // determine major axis
+	if (delta_x > delta_y) {
+		i = 0;
+		j = 1;
+	}
+	else {
+		i = 1;
+		j = 0;
+	}
+	// make sure that slop always positive
+	if ((i == 0 && a.x > b.x) || (i == 1 && a.y > b.y)) {
+		std::swap(a,b);
 	}
 
+	float a_i = (i == 0) ? a.x : a.y;
+	float b_i = (i == 0) ? b.x : b.y;
+	float a_j = (i == 1) ? a.x : a.y;
+	float b_j = (i == 1) ? b.x : b.y;
+
+	int t1 = static_cast<int> (std::floor(a_i));
+	int t2 = static_cast<int> (std::floor(b_i));
+
+	// along the major axis
+	for (int u = t1; u <= t2; ++u) {
+		float w = ((u + 0.5f) - a_i) / (b_i - a_i);
+		float v = w * (b_j - a_j) + a_j;
+
+		Vec2 line_point = Vec2((i == 0) ? (u + 0.5f) : v, (i == 0) ? v : (u + 0.5f));
+		Vec2 pixel_center = Vec2((i == 0) ? (u + 0.5f) : (std::floor(v) + 0.5f),
+			(i == 0) ? (std::floor(v) + 0.5f) : (u + 0.5f));
+
+		if (exit_from_diamond(pixel_center, line_point)) {
+			Fragment frag;
+			frag.fb_position = Vec3(pixel_center.x, pixel_center.y, va.fb_position.z + w * (vb.fb_position.z - va.fb_position.z));
+			frag.attributes = va.attributes;
+			frag.derivatives.fill(Vec2(0.0f, 0.0f));
+			emit_fragment(frag);
+		}
+	}
 }
 
 /*
