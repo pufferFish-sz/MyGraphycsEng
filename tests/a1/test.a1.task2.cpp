@@ -185,4 +185,17 @@ Test test_a1_task2_simple_vertical("a1.task2.simple.vertical", []() {
 	);
 });
 
+//----------------------------
+//test if tilted line works:
+
+Test test_a1_task2_half_slope("a1.task2.half.slope", []() {
+	check_line_covers(
+		"1/2 slope line from (0, 0) to (4, 2)",
+		{ Vec2(0, 0), Vec2(4, 2) },
+		{ "......",
+		 "..##..",
+		 "##...." }
+	);
+	});
+
 

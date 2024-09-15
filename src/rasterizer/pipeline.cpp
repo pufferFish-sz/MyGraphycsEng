@@ -366,16 +366,49 @@ void Pipeline<p, P, flags>::rasterize_line(
 		assert(0 && "rasterize_line should only be invoked in flat interpolation mode.");
 	}
 	// A1T2: rasterize_line
+	auto quadrant_num = [](Vec2 pixel_center, Vec2 line_point) -> int {	
+		if (line_point.x < pixel_center.x) {
+			if (line_point.y > pixel_center.y) {
+				return 2;
+			}
+			return 3;
+		}
+		else {
+			if (line_point.y > pixel_center.y) {
+				return 1;
+			}
+			return 4;
+		}
+		};
 
-	//auto computeLength = [](Vec2 vec) -> float {
-	//	return sqrtf(vec.x * vec.x + vec.y * vec.y);
-	//	};
-
-	// lambda function
-	
-	auto exit_from_diamond = [](Vec2 pixel_center, Vec2 line_point) -> bool {
+	auto exit_from_diamond = [=](Vec2 pixel_center, Vec2 line_point) -> bool {
 		return abs(line_point.x - pixel_center.x) + abs(line_point.y - pixel_center.y) < 0.5f;
 		};
+
+	auto end_point_exit = [=](Vec2 pixel_center, Vec2 line_point, int major_axis) -> bool {
+		Vec2 top_point = Vec2(pixel_center.x, pixel_center.y + 0.5f); // top
+		Vec2 right_point = Vec2(pixel_center.x + 0.5f, pixel_center.y); // right
+		int quadrant = quadrant_num(pixel_center, line_point);
+		//std::cout << "current point is: " << line_point << std::endl;
+		//std::cout << "current quadrant is: " << quadrant << std::endl;
+
+		if (!exit_from_diamond(pixel_center, line_point)) {
+			/*int quadrant = quadrant_num(pixel_center, line_point);
+			std::cout << "current point is: " << pixel_center << std::endl;
+			std::cout << "current quadrant is: " << quadrant << std::endl;*/
+			if (major_axis == 0) {
+				if (line_point == right_point || quadrant == 1 || quadrant == 4) {
+					return true;
+				}
+			}
+			else {
+				if (line_point == top_point || quadrant == 1 || quadrant == 2) {
+					return true;
+				}
+			}
+		}
+		return false;
+	};
 
 	Vec2 a = Vec2(va.fb_position.x, va.fb_position.y);
 	Vec2 b = Vec2(vb.fb_position.x, vb.fb_position.y);
@@ -392,7 +425,7 @@ void Pipeline<p, P, flags>::rasterize_line(
 		i = 1;
 		j = 0;
 	}
-	// make sure that slop always positive
+	// make sure that slope always positive
 	if ((i == 0 && a.x > b.x) || (i == 1 && a.y > b.y)) {
 		std::swap(a,b);
 	}
@@ -408,18 +441,30 @@ void Pipeline<p, P, flags>::rasterize_line(
 	// along the major axis
 	for (int u = t1; u <= t2; ++u) {
 		float w = ((u + 0.5f) - a_i) / (b_i - a_i);
+		//std::cout << "current w: " << w << std::endl;
 		float v = w * (b_j - a_j) + a_j;
 
 		Vec2 line_point = Vec2((i == 0) ? (u + 0.5f) : v, (i == 0) ? v : (u + 0.5f));
 		Vec2 pixel_center = Vec2((i == 0) ? (u + 0.5f) : (std::floor(v) + 0.5f),
 			(i == 0) ? (std::floor(v) + 0.5f) : (u + 0.5f));
 
-		if (exit_from_diamond(pixel_center, line_point)) {
-			Fragment frag;
-			frag.fb_position = Vec3(pixel_center.x, pixel_center.y, va.fb_position.z + w * (vb.fb_position.z - va.fb_position.z));
-			frag.attributes = va.attributes;
-			frag.derivatives.fill(Vec2(0.0f, 0.0f));
-			emit_fragment(frag);
+		if (u == t2) {
+			if (end_point_exit(pixel_center, b, i)) {
+				Fragment frag;
+				frag.fb_position = Vec3(pixel_center.x, pixel_center.y, va.fb_position.z + w * (vb.fb_position.z - va.fb_position.z));
+				frag.attributes = va.attributes;
+				frag.derivatives.fill(Vec2(0.0f, 0.0f));
+				emit_fragment(frag);
+			}
+		}
+		else {
+			if (exit_from_diamond(pixel_center, line_point)) {
+				Fragment frag;
+				frag.fb_position = Vec3(pixel_center.x, pixel_center.y, va.fb_position.z + w * (vb.fb_position.z - va.fb_position.z));
+				frag.attributes = va.attributes;
+				frag.derivatives.fill(Vec2(0.0f, 0.0f));
+				emit_fragment(frag);
+			}
 		}
 	}
 }
