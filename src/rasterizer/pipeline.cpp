@@ -349,14 +349,7 @@ void Pipeline<p, P, flags>::clip_triangle(
  * If you wish to work in fixed point, check framebuffer.h for useful information about the framebuffer's dimensions.
  */
 
-//static float computeLength(Vec2 vec)
-//{
-//	return sqrtf(vec.x * vec.x + vec.y * vec.y);
-//}
-//
-//static bool exit_from_diamond(Vec2 pixel_center, Vec2 line_point) {
-//	return abs(line_point.x - pixel_center.x) + abs(line_point.y - pixel_center.y) < 0.5f;
-//}
+
 
 template<PrimitiveType p, class P, uint32_t flags>
 void Pipeline<p, P, flags>::rasterize_line(
@@ -366,6 +359,7 @@ void Pipeline<p, P, flags>::rasterize_line(
 		assert(0 && "rasterize_line should only be invoked in flat interpolation mode.");
 	}
 	// A1T2: rasterize_line
+	// Find what quadrant the point is in 
 	auto quadrant_num = [](Vec2 pixel_center, Vec2 line_point) -> int {	
 		if (line_point.x < pixel_center.x) {
 			if (line_point.y > pixel_center.y) {
@@ -380,7 +374,7 @@ void Pipeline<p, P, flags>::rasterize_line(
 			return 4;
 		}
 		};
-
+	// the rule to check if the point is within the diamond
 	auto exit_from_diamond = [=](Vec2 pixel_center, Vec2 line_point) -> bool {
 		return abs(line_point.x - pixel_center.x) + abs(line_point.y - pixel_center.y) < 0.5f;
 		};
@@ -514,23 +508,75 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 	//  same code paths. Be aware, however, that all of them need to remain working!
 	//  (e.g., if you break Flat while implementing Correct, you won't get points
 	//   for Flat.)
+
+	auto in_triangle = [=](Vec3 a, Vec3 b, Vec3 c, Vec3 q) -> bool {
+		Vec3 ac = c - a;
+		Vec3 ab = b - a;
+		Vec3 aq = q - a;
+		Vec3 cb = b - c;
+		Vec3 ca = a - c;
+		Vec3 cq = q - c;
+		Vec3 ba = a - b;
+		Vec3 bc = c - b;
+		Vec3 bq = q - b;
+
+		return (dot(cross(ac, ab), cross(ac, aq)) > 0) && (dot(cross(cb, ca), cross(cb, cq)) > 0)
+			&& (dot(cross(ba, bc), cross(ba, bq)) > 0);
+
+		};
 	if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Flat) {
 		// A1T3: flat triangles
 		// TODO: rasterize triangle (see block comment above this function).
 
-		// As a placeholder, here's code that draws some lines:
-		//(remove this and replace it with a real solution)
-		Pipeline<PrimitiveType::Lines, P, flags>::rasterize_line(va, vb, emit_fragment);
-		Pipeline<PrimitiveType::Lines, P, flags>::rasterize_line(vb, vc, emit_fragment);
-		Pipeline<PrimitiveType::Lines, P, flags>::rasterize_line(vc, va, emit_fragment);
-	} else if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Smooth) {
+		// bounding box of the triangle
+		float minX = std::min({ va.fb_position.x, vb.fb_position.x, vc.fb_position.x });
+		float minY = std::min({ va.fb_position.y, vb.fb_position.y, vc.fb_position.y });
+		float maxX = std::max({ va.fb_position.x, vb.fb_position.x, vc.fb_position.x });
+		float maxY = std::max({ va.fb_position.y, vb.fb_position.y, vc.fb_position.y });
+
+		// iterate over the bounding box and check if each point is in the triangle
+		for (int y = static_cast<int> (std::floor(minY)); y <= static_cast<int> (std::ceil(maxY)); ++y) {
+			for (int x = static_cast<int> (std::floor(minX)); x <= static_cast<int> (std::ceil(maxX)); ++x) {
+
+				// center of the pixel
+				Vec3 q = Vec3(x + 0.5f, y + 0.5f, 0.0f);
+
+				if (in_triangle(va.fb_position, vb.fb_position, vc.fb_position, q)) {
+
+					// barycentric coordinates to interpolate depth
+					Vec3 ab = vb.fb_position - va.fb_position;
+					Vec3 ac = vc.fb_position - va.fb_position;
+					Vec3 aq = q - va.fb_position;
+
+					float area_abc = cross(ab, ac).z;
+					float alpha = cross(aq, ac).z / area_abc;
+					float beta = cross(ab, aq).z / area_abc;
+					float gamma = 1.0f - alpha - beta;
+
+					// interpolate the depth (z-value)
+					float z = alpha * va.fb_position.z + beta * vb.fb_position.z + gamma * vc.fb_position.z;
+
+					Fragment frag;
+					frag.fb_position = Vec3(x + 0.5f, y + 0.5f, z);
+
+					// attribute interpolation based on the flags
+					if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Flat) {
+						frag.attributes = va.attributes;
+					}
+					emit_fragment(frag);
+				}
+				}
+			}
+		}
+	else if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Smooth) {
 		// A1T5: screen-space smooth triangles
 		// TODO: rasterize triangle (see block comment above this function).
 
 		// As a placeholder, here's code that calls the Flat interpolation version of the function:
 		//(remove this and replace it with a real solution)
 		Pipeline<PrimitiveType::Lines, P, (flags & ~PipelineMask_Interp) | Pipeline_Interp_Flat>::rasterize_triangle(va, vb, vc, emit_fragment);
-	} else if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Correct) {
+	}
+	else if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Correct) {
 		// A1T5: perspective correct triangles
 		// TODO: rasterize triangle (block comment above this function).
 
@@ -538,7 +584,7 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 		//(remove this and replace it with a real solution)
 		Pipeline<PrimitiveType::Lines, P, (flags & ~PipelineMask_Interp) | Pipeline_Interp_Smooth>::rasterize_triangle(va, vb, vc, emit_fragment);
 	}
-}
+	}
 
 //-------------------------------------------------------------------------
 // compile instantiations for all programs and blending and testing types:
