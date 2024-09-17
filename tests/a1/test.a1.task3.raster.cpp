@@ -312,4 +312,141 @@ Test test_a1_task3_raster_thin_2px("a1.task3.raster.thin.2px", []() {
 	);
 });
 
+Test test_a1_task3_normal_1("a1.task3.normal.1", []() {
+	check_rasterize_triangles(
+		"Regular triangle",
+		{
+		 FPClippedVertex{Vec3{1.21f, 2.956f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{1.013f, 1.037f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{3.93f, 1.3f, 0.5f}, 1.0f, {1.0f}},
+		},
+  {
+   FPFragment{ Vec3{ 1.5f, 1.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 1.5f, 2.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 2.5f, 1.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 3.5f, 1.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+  }
+  );
+	});
+
+Test test_a1_task3_normal_2("a1.task3.normal.2", []() {
+	check_rasterize_triangles(
+		"Left edge should be included",
+		{
+		 FPClippedVertex{Vec3{1.5f, 3.0f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{1.5f, 1.0f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{3.93f, 1.3f, 0.5f}, 1.0f, {1.0f}},
+		},
+  {
+   FPFragment{ Vec3{ 1.5f, 1.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 1.5f, 2.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 2.5f, 1.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 3.5f, 1.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+  }
+  );
+	});
+
+Test test_a1_task3_normal_3("a1.task3.normal.3", []() {
+	check_rasterize_triangles(
+		"Left edge should be excluded",
+		{
+		 FPClippedVertex{Vec3{1.6f, 3.0f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{1.6f, 1.0f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{3.93f, 1.3f, 0.5f}, 1.0f, {1.0f}},
+		},
+  {
+   FPFragment{ Vec3{ 2.5f, 1.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 3.5f, 1.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+  }
+  );
+	});
+
+Test test_a1_task3_normal_4("a1.task3.normal.4", []() {
+	check_rasterize_triangles(
+		"Right edge should be excluded",
+		{
+		 FPClippedVertex{Vec3{1.5f, 3.0f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{1.5f, 1.0f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{0.0f, 2.5f, 0.5f}, 1.0f, {1.0f}},
+		},
+  {
+   FPFragment{ Vec3{ 0.5f, 2.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+  }
+  );
+	});
+
+
+Test test_a1_task3_normal_5("a1.task3.normal.5", []() {
+	check_rasterize_triangles(
+		"Top edge should included",
+		{
+		 FPClippedVertex{Vec3{1.5f, 1.0f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{1.5f, 2.5f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{4.0f, 2.5f, 0.5f}, 1.0f, {1.0f}},
+		},
+  {
+   FPFragment{ Vec3{ 1.5f, 1.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 1.5f, 2.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 2.5f, 2.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 3.5f, 2.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+  }
+  );
+	});
+
+Test test_a1_task3_normal_6("a1.task3.normal.6", []() {
+	check_rasterize_triangles(
+		"Bottom edge should excluded",
+		{
+		 FPClippedVertex{Vec3{1.5f, 4.0f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{1.5f, 2.5f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{4.0f, 2.5f, 0.5f}, 1.0f, {1.0f}},
+		},
+  {
+   FPFragment{ Vec3{ 1.5f, 3.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+  }
+  );
+	});
+
+Test test_a1_task3_double_1("a1.task3.double.1", []() {
+	check_rasterize_triangles(
+		"Left right adjacent triangles",
+		{
+		 FPClippedVertex{Vec3{1.5f, 3.0f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{1.5f, 1.0f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{3.93f, 1.3f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{1.5f, 3.0f, 0.5f}, 1.0f, {-1.0f}},
+		 FPClippedVertex{Vec3{1.5f, 1.0f, 0.5f}, 1.0f, {-1.0f}},
+		 FPClippedVertex{Vec3{0.0f, 2.5f, 0.5f}, 1.0f, {-1.0f}},
+		},
+  {
+   FPFragment{ Vec3{ 1.5f, 1.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 1.5f, 2.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 2.5f, 1.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 3.5f, 1.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 0.5f, 2.5f, 0.5f }, {-1.0f}, { Vec2{0.0f} } },
+  }
+  );
+	});
+
+Test test_a1_task3_double_2("a1.task3.double.2", []() {
+	check_rasterize_triangles(
+		"Top bottom adjacent triangles",
+		{
+		 FPClippedVertex{Vec3{1.5f, 1.0f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{1.5f, 2.5f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{4.0f, 2.5f, 0.5f}, 1.0f, {1.0f}},
+		 FPClippedVertex{Vec3{1.5f, 4.0f, 0.5f}, 1.0f, {-1.0f}},
+		 FPClippedVertex{Vec3{1.5f, 2.5f, 0.5f}, 1.0f, {-1.0f}},
+		 FPClippedVertex{Vec3{4.0f, 2.5f, 0.5f}, 1.0f, {-1.0f}},
+		},
+  {
+   FPFragment{ Vec3{ 1.5f, 1.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 1.5f, 2.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 2.5f, 2.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 3.5f, 2.5f, 0.5f }, {1.0f}, { Vec2{0.0f} } },
+   FPFragment{ Vec3{ 1.5f, 3.5f, 0.5f }, {-1.0f}, { Vec2{0.0f} } },
+  }
+  );
+	});
+
 

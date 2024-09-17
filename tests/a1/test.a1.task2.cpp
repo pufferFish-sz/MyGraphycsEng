@@ -198,4 +198,93 @@ Test test_a1_task2_half_slope("a1.task2.half.slope", []() {
 	);
 	});
 
+//----------------------------
+//some edge cases
+
+// diamond exit tests
+Test test_a1_task2_diamond_between_0("a1.task2.diamond.between0", []() {
+	check_line_covers(
+		"line outside and between diamonds (0,1) and (1,1)",
+		{ Vec2(0.875f, 1.0f), Vec2(1.125f, 1.0f) },
+		{ "...",
+		 "...",
+		 "..." }
+	);
+	});
+Test test_a1_task2_diamond_between_1("a1.task2.diamond.between1", []() {
+	check_line_covers(
+		"line outside and between diamonds (0,1) and (1,1)",
+		{ Vec2(1.0f, 0.875f), Vec2(1.0f, 1.125f) },
+		{ "...",
+		 "...",
+		 "..." }
+	);
+	});
+
+// the start point does not pass through starting diamond
+// the end point enters but does not exit ending diamond
+Test test_a1_task2_diamond_exit_0("a1.task2.diamond.exit0", []() {
+	check_line_covers(
+		"line doesn't exit any diamonds",
+		{ Vec2(0.875f, 0.875f), Vec2(1.5f, 0.5f) },
+		{"...",
+		 "...",
+		 "..." }
+	);
+	});
+// the start point starts inside the starting diamond
+// the end point does not enter ending diamond
+Test test_a1_task2_diamond_exit_1("a1.task2.diamond.exit1", []() {
+	check_line_covers(
+		"line exits one diamond",
+		{ Vec2(0.5f, 0.5f), Vec2(1.125f, 0.875f) },
+		{ "...",
+		 "...",
+		 "#.." }
+	);
+	});
+
+Test test_a1_task2_simple_integerhorizontal("a1.task2.simple.integerhorizontal", []() {
+	check_line_covers(
+		"horizontal line from (1, 0) to (3.5, 0)",
+		{ Vec2(1.0f, 0.0f), Vec2(3.5f, 0.0f) },
+		{ "......",
+		 ".##..." }
+	);
+	});
+
+Test test_a1_task2_simple_integerhorizontal2("a1.task2.simple.integerhorizontal2", []() {
+	check_line_covers(
+		"horizontal line from (1, 0) to (3.51, 0)",
+		{ Vec2(1.0f, 0.0f), Vec2(3.51f, 0.0f) },
+		{ "......",
+		 ".###.." }
+	);
+	});
+
+Test test_a1_task2_simple_integervertical("a1.task2.simple.integervertical", []() {
+	check_line_covers(
+		"vertical line from (1.0, 1.0) to (1.0, 4.5)",
+		{ Vec2(1.0f, 1.0f), Vec2(1.0f, 4.5f) },
+		{ "...",
+		 ".#.",
+		 ".#.",
+		 ".#.",
+		 "..." }
+	);
+	});
+
+Test test_a1_task2_simple_integervertical2("a1.task2.simple.integervertical2", []() {
+	check_line_covers(
+		"vertical line from (1.0, 1.0) to (1.0, 4.51)",
+		{ Vec2(1.0f, 1.0f), Vec2(1.0f, 4.51f) },
+		{ "...",
+		 ".#.",
+		 ".#.",
+		 ".#.",
+		 ".#.",
+		 "..." }
+	);
+	});
+
 

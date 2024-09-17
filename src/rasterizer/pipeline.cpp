@@ -374,22 +374,33 @@ void Pipeline<p, P, flags>::rasterize_line(
 			return 4;
 		}
 		};
-	// the rule to check if the point is within the diamond
-	auto exit_from_diamond = [=](Vec2 pixel_center, Vec2 line_point) -> bool {
-		return abs(line_point.x - pixel_center.x) + abs(line_point.y - pixel_center.y) < 0.5f;
-		};
 
-	auto end_point_exit = [=](Vec2 pixel_center, Vec2 line_point, int major_axis) -> bool {
+	// the rule to check if the point is within the diamond
+	auto fill_pixel = [&](Vec2 pixel_center, Vec2 line_point, ClippedVertex const& va, ClippedVertex const& vb, float w) {
+		Fragment frag;
+		frag.fb_position = Vec3(pixel_center.x, pixel_center.y, va.fb_position.z + w * (vb.fb_position.z - va.fb_position.z));
+		frag.attributes = va.attributes;
+		frag.derivatives.fill(Vec2(0.0f, 0.0f));
+		emit_fragment(frag);
+	};
+
+	// the rule to check if the point is within the diamond
+	auto exit_from_diamond = [&](Vec2 pixel_center, Vec2 line_point) -> bool {
+		Vec2 bot_point = Vec2(pixel_center.x + 0.5f, pixel_center.y); // bot
+		Vec2 left_point = Vec2(pixel_center.x, pixel_center.y + 0.5f); // left
+		std::cout << "current point is: " << line_point << std::endl;
+		std::cout << "current quadrant is: " << quadrant_num(pixel_center, line_point) << std::endl;
+		return abs(line_point.x - pixel_center.x) + abs(line_point.y - pixel_center.y) <= 0.5f;
+	};
+
+	auto end_point_exit = [&](Vec2 pixel_center, Vec2 line_point, int major_axis) -> bool {
 		Vec2 top_point = Vec2(pixel_center.x, pixel_center.y + 0.5f); // top
 		Vec2 right_point = Vec2(pixel_center.x + 0.5f, pixel_center.y); // right
 		int quadrant = quadrant_num(pixel_center, line_point);
 		//std::cout << "current point is: " << line_point << std::endl;
 		//std::cout << "current quadrant is: " << quadrant << std::endl;
-
 		if (!exit_from_diamond(pixel_center, line_point)) {
-			/*int quadrant = quadrant_num(pixel_center, line_point);
-			std::cout << "current point is: " << pixel_center << std::endl;
-			std::cout << "current quadrant is: " << quadrant << std::endl;*/
+		
 			if (major_axis == 0) {
 				if (line_point == right_point || quadrant == 1 || quadrant == 4) {
 					return true;
@@ -404,11 +415,36 @@ void Pipeline<p, P, flags>::rasterize_line(
 		return false;
 	};
 
+	auto start_point_exit = [=](Vec2 pixel_center, Vec2 line_point, int major_axis) -> bool {
+		Vec2 bot_point = Vec2(pixel_center.x + 0.5f, pixel_center.y); // bot
+		Vec2 left_point = Vec2(pixel_center.x, pixel_center.y + 0.5f); // left
+		int quadrant = quadrant_num(pixel_center, line_point);
+		std::cout << "current start point is: " << line_point << std::endl;
+		std::cout << "current quadrant is: " << quadrant << std::endl;
+		std::cout << "major axis is: " << major_axis << std::endl;
+		if (!exit_from_diamond(pixel_center, line_point)) {
+		
+			if (major_axis == 0) {
+				if ((line_point != bot_point && line_point != left_point && quadrant != 2 && quadrant != 3) || (quadrant == 1)) {
+					return false;
+				}
+			}
+			else {
+				if (line_point != bot_point && line_point != left_point && quadrant != 4 && quadrant != 3 || (quadrant == 1)) {
+					return false;
+				}
+			}
+		}
+		return true;
+		};
+
 	Vec2 a = Vec2(va.fb_position.x, va.fb_position.y);
 	Vec2 b = Vec2(vb.fb_position.x, vb.fb_position.y);
 	
 	float delta_x = std::abs(b.x - a.x);
 	float delta_y = std::abs(b.y - a.y);
+
+	float line_length = sqrtf(delta_x * delta_x + delta_y * delta_y);
 
 	int i, j; // determine major axis
 	if (delta_x > delta_y) {
@@ -419,6 +455,13 @@ void Pipeline<p, P, flags>::rasterize_line(
 		i = 1;
 		j = 0;
 	}
+
+	// Vertical line edge case: delta_x == 0 (perfectly vertical)
+	if (delta_x == 0) {
+		i = 1; // Force Y to be the major axis
+		j = 0; // X is irrelevant in this case
+	}
+
 	// make sure that slope always positive
 	if ((i == 0 && a.x > b.x) || (i == 1 && a.y > b.y)) {
 		std::swap(a,b);
@@ -442,22 +485,38 @@ void Pipeline<p, P, flags>::rasterize_line(
 		Vec2 pixel_center = Vec2((i == 0) ? (u + 0.5f) : (std::floor(v) + 0.5f),
 			(i == 0) ? (std::floor(v) + 0.5f) : (u + 0.5f));
 
-		if (u == t2) {
+		if (u == t1) {
+			int u_2 = t1 + 1;
+			float w_2 = ((u_2 + 0.5f) - a_i) / (b_i - a_i);
+			float v_2 = w_2 * (b_j - a_j) + a_j;
+			Vec2 secPoint = Vec2((i == 0) ? (u_2 + 0.5f) : v_2, (i == 0) ? v_2 : (u_2 + 0.5f));
+			//std::cout << "secondPoint " << secPoint << std::endl;
+			Vec2 pixel_center_2 = Vec2((i == 0) ? (u_2 + 0.5f) : (std::floor(v_2) + 0.5f),
+				(i == 0) ? (std::floor(v_2) + 0.5f) : (u_2 + 0.5f));
+
+			// dist between 1st and 2nd point
+			float dist = sqrtf((secPoint.x - line_point.x) * (secPoint.x - line_point.x) + 
+				(secPoint.y - line_point.y) * (secPoint.y - line_point.y));
+
+			if (start_point_exit(pixel_center, a, i)) {
+				if (line_length < dist) {
+					if (end_point_exit(pixel_center, b, i)) {
+						fill_pixel(pixel_center, line_point, va, vb, w);
+					}
+				}
+				else if (exit_from_diamond(pixel_center_2, secPoint)) {
+					fill_pixel(pixel_center, line_point, va, vb, w);
+				}
+			}
+		}
+		else if (u == t2) {
 			if (end_point_exit(pixel_center, b, i)) {
-				Fragment frag;
-				frag.fb_position = Vec3(pixel_center.x, pixel_center.y, va.fb_position.z + w * (vb.fb_position.z - va.fb_position.z));
-				frag.attributes = va.attributes;
-				frag.derivatives.fill(Vec2(0.0f, 0.0f));
-				emit_fragment(frag);
+				fill_pixel(pixel_center, line_point, va, vb, w);
 			}
 		}
 		else {
 			if (exit_from_diamond(pixel_center, line_point)) {
-				Fragment frag;
-				frag.fb_position = Vec3(pixel_center.x, pixel_center.y, va.fb_position.z + w * (vb.fb_position.z - va.fb_position.z));
-				frag.attributes = va.attributes;
-				frag.derivatives.fill(Vec2(0.0f, 0.0f));
-				emit_fragment(frag);
+				fill_pixel(pixel_center, line_point, va, vb, w);
 			}
 		}
 	}
