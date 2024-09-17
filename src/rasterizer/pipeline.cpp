@@ -142,6 +142,13 @@ void Pipeline<primitive_type, Program, flags>::run(std::vector<Vertex> const& ve
 			// "Less" means the depth test passes when the new fragment has depth less than the stored depth.
 			// A1T4: Depth_Less
 			// TODO: implement depth test! We want to only emit fragments that have a depth less than the stored depth, hence "Depth_Less".
+			if (f.fb_position.z < fb_depth) {
+				// Depth passes, so keep processing
+			}
+			else {
+				continue; // discard fragment
+			}
+
 		} else {
 			static_assert((flags & PipelineMask_Depth) <= Pipeline_Depth_Always, "Unknown depth test flag.");
 		}
@@ -164,12 +171,12 @@ void Pipeline<primitive_type, Program, flags>::run(std::vector<Vertex> const& ve
 			} else if constexpr ((flags & PipelineMask_Blend) == Pipeline_Blend_Add) {
 				// A1T4: Blend_Add
 				// TODO: framebuffer color should have fragment color multiplied by fragment opacity added to it.
-				fb_color = sf.color; //<-- replace this line
+				fb_color += sf.color * sf.opacity; //<-- replace this line
 			} else if constexpr ((flags & PipelineMask_Blend) == Pipeline_Blend_Over) {
 				// A1T4: Blend_Over
 				// TODO: set framebuffer color to the result of "over" blending (also called "alpha blending") the fragment color over the framebuffer color, using the fragment's opacity
 				// 		 You may assume that the framebuffer color has its alpha premultiplied already, and you just want to compute the resulting composite color
-				fb_color = sf.color; //<-- replace this line
+				fb_color = sf.color * sf.opacity + fb_color * (1.0f - sf.opacity); //<-- replace this line
 			} else {
 				static_assert((flags & PipelineMask_Blend) <= Pipeline_Blend_Over, "Unknown blending flag.");
 			}
@@ -375,7 +382,7 @@ void Pipeline<p, P, flags>::rasterize_line(
 		}
 		};
 
-	// the rule to check if the point is within the diamond
+	// color the pixel
 	auto fill_pixel = [&](Vec2 pixel_center, Vec2 line_point, ClippedVertex const& va, ClippedVertex const& vb, float w) {
 		Fragment frag;
 		frag.fb_position = Vec3(pixel_center.x, pixel_center.y, va.fb_position.z + w * (vb.fb_position.z - va.fb_position.z));
@@ -388,8 +395,8 @@ void Pipeline<p, P, flags>::rasterize_line(
 	auto exit_from_diamond = [&](Vec2 pixel_center, Vec2 line_point) -> bool {
 		Vec2 bot_point = Vec2(pixel_center.x + 0.5f, pixel_center.y); // bot
 		Vec2 left_point = Vec2(pixel_center.x, pixel_center.y + 0.5f); // left
-		std::cout << "current point is: " << line_point << std::endl;
-		std::cout << "current quadrant is: " << quadrant_num(pixel_center, line_point) << std::endl;
+		/*std::cout << "current point is: " << line_point << std::endl;
+		std::cout << "current quadrant is: " << quadrant_num(pixel_center, line_point) << std::endl;*/
 		return abs(line_point.x - pixel_center.x) + abs(line_point.y - pixel_center.y) <= 0.5f;
 	};
 
@@ -419,9 +426,9 @@ void Pipeline<p, P, flags>::rasterize_line(
 		Vec2 bot_point = Vec2(pixel_center.x + 0.5f, pixel_center.y); // bot
 		Vec2 left_point = Vec2(pixel_center.x, pixel_center.y + 0.5f); // left
 		int quadrant = quadrant_num(pixel_center, line_point);
-		std::cout << "current start point is: " << line_point << std::endl;
-		std::cout << "current quadrant is: " << quadrant << std::endl;
-		std::cout << "major axis is: " << major_axis << std::endl;
+		//std::cout << "current start point is: " << line_point << std::endl;
+		//std::cout << "current quadrant is: " << quadrant << std::endl;
+		//std::cout << "major axis is: " << major_axis << std::endl;
 		if (!exit_from_diamond(pixel_center, line_point)) {
 		
 			if (major_axis == 0) {
@@ -478,19 +485,19 @@ void Pipeline<p, P, flags>::rasterize_line(
 	// along the major axis
 	for (int u = t1; u <= t2; ++u) {
 		float w = ((u + 0.5f) - a_i) / (b_i - a_i);
-		//std::cout << "current w: " << w << std::endl;
 		float v = w * (b_j - a_j) + a_j;
 
 		Vec2 line_point = Vec2((i == 0) ? (u + 0.5f) : v, (i == 0) ? v : (u + 0.5f));
 		Vec2 pixel_center = Vec2((i == 0) ? (u + 0.5f) : (std::floor(v) + 0.5f),
 			(i == 0) ? (std::floor(v) + 0.5f) : (u + 0.5f));
 
-		if (u == t1) {
+		if (u == t1) { // start point
+			// also sample the second point to see if the distance between 1st and 2nd point is 
+			// more than the total line distance
 			int u_2 = t1 + 1;
 			float w_2 = ((u_2 + 0.5f) - a_i) / (b_i - a_i);
 			float v_2 = w_2 * (b_j - a_j) + a_j;
 			Vec2 secPoint = Vec2((i == 0) ? (u_2 + 0.5f) : v_2, (i == 0) ? v_2 : (u_2 + 0.5f));
-			//std::cout << "secondPoint " << secPoint << std::endl;
 			Vec2 pixel_center_2 = Vec2((i == 0) ? (u_2 + 0.5f) : (std::floor(v_2) + 0.5f),
 				(i == 0) ? (std::floor(v_2) + 0.5f) : (u_2 + 0.5f));
 
@@ -509,12 +516,12 @@ void Pipeline<p, P, flags>::rasterize_line(
 				}
 			}
 		}
-		else if (u == t2) {
+		else if (u == t2) { // end point
 			if (end_point_exit(pixel_center, b, i)) {
 				fill_pixel(pixel_center, line_point, va, vb, w);
 			}
 		}
-		else {
+		else {  // all other mid points
 			if (exit_from_diamond(pixel_center, line_point)) {
 				fill_pixel(pixel_center, line_point, va, vb, w);
 			}
@@ -568,7 +575,8 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 	//  (e.g., if you break Flat while implementing Correct, you won't get points
 	//   for Flat.)
 
-	auto in_triangle = [=](Vec3 a, Vec3 b, Vec3 c, Vec3 q) -> bool {
+	// Use cross product to see if the point is in the triangle
+	auto in_triangle = [&](Vec3 a, Vec3 b, Vec3 c, Vec3 q) -> bool {
 		Vec3 ac = c - a;
 		Vec3 ab = b - a;
 		Vec3 aq = q - a;
@@ -583,9 +591,32 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 			&& (dot(cross(ba, bc), cross(ba, bq)) > 0);
 
 		};
+
+	/*auto is_top_or_left = [&](Vec3 a, Vec3 b, Vec3 c, Vec3 point) -> bool {
+		Vec3 ab = b - a;
+		Vec3 bc = c - b;
+		Vec3 ca = a - c;
+		Vec3 top = Vec3(0, 0, 0);
+
+		if (a.y == b.y) {
+			top = ab;
+		}
+		else if (b.y == c.y) {
+			top = bc;
+		}
+		else if (c.y == a.y) {
+			top = ca;
+		}
+
+		if (point.x )
+
+		return (dot(cross(ac, ab), cross(ac, aq)) > 0) && (dot(cross(cb, ca), cross(cb, cq)) > 0)
+			&& (dot(cross(ba, bc), cross(ba, bq)) > 0);
+
+		};*/
+
 	if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Flat) {
 		// A1T3: flat triangles
-		// TODO: rasterize triangle (see block comment above this function).
 
 		// bounding box of the triangle
 		float minX = std::min({ va.fb_position.x, vb.fb_position.x, vc.fb_position.x });
