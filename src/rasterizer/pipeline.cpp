@@ -432,12 +432,12 @@ void Pipeline<p, P, flags>::rasterize_line(
 		if (!exit_from_diamond(pixel_center, line_point)) {
 		
 			if (major_axis == 0) {
-				if ((line_point != bot_point && line_point != left_point && quadrant != 2 && quadrant != 3) || (quadrant == 1)) {
+				if (((line_point != bot_point) && (line_point != left_point) && (quadrant != 2) && (quadrant != 3)) || (quadrant == 1)) {
 					return false;
 				}
 			}
 			else {
-				if (line_point != bot_point && line_point != left_point && quadrant != 4 && quadrant != 3 || (quadrant == 1)) {
+				if ((line_point != bot_point) && (line_point != left_point) && (quadrant != 4) && (quadrant != 3) || (quadrant == 1)) {
 					return false;
 				}
 			}
@@ -453,20 +453,20 @@ void Pipeline<p, P, flags>::rasterize_line(
 
 	float line_length = sqrtf(delta_x * delta_x + delta_y * delta_y);
 
-	int i, j; // determine major axis
+	int i;//, j; // determine major axis
 	if (delta_x > delta_y) {
 		i = 0;
-		j = 1;
+		//j = 1;
 	}
 	else {
 		i = 1;
-		j = 0;
+		//j = 0;
 	}
 
 	// Vertical line edge case: delta_x == 0 (perfectly vertical)
 	if (delta_x == 0) {
 		i = 1; // Force Y to be the major axis
-		j = 0; // X is irrelevant in this case
+		//j = 0; // X is irrelevant in this case
 	}
 
 	// make sure that slope always positive
