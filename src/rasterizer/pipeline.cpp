@@ -437,7 +437,7 @@ void Pipeline<p, P, flags>::rasterize_line(
 				}
 			}
 			else {
-				if ((line_point != bot_point) && (line_point != left_point) && (quadrant != 4) && (quadrant != 3) || (quadrant == 1)) {
+				if (((line_point != bot_point) && (line_point != left_point) && (quadrant != 4) && (quadrant != 3)) || (quadrant == 1)) {
 					return false;
 				}
 			}
