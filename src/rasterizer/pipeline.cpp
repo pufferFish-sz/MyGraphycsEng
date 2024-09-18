@@ -587,33 +587,27 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 		Vec3 bc = c - b;
 		Vec3 bq = q - b;
 
-		return (dot(cross(ac, ab), cross(ac, aq)) > 0) && (dot(cross(cb, ca), cross(cb, cq)) > 0)
-			&& (dot(cross(ba, bc), cross(ba, bq)) > 0);
+		return (dot(cross(ac, ab), cross(ac, aq)) >= 0) && (dot(cross(cb, ca), cross(cb, cq)) >= 0)
+			&& (dot(cross(ba, bc), cross(ba, bq)) >= 0);
 
-		};
+	};
 
-	/*auto is_top_or_left = [&](Vec3 a, Vec3 b, Vec3 c, Vec3 point) -> bool {
+	auto is_on_edge = [&](Vec3 a, Vec3 b, Vec3 q) {
 		Vec3 ab = b - a;
-		Vec3 bc = c - b;
-		Vec3 ca = a - c;
-		Vec3 top = Vec3(0, 0, 0);
+		Vec3 aq = q - a;
+		return cross(ab, aq).z == 0.0f;
+	};
 
-		if (a.y == b.y) {
-			top = ab;
-		}
-		else if (b.y == c.y) {
-			top = bc;
-		}
-		else if (c.y == a.y) {
-			top = ca;
-		}
-
-		if (point.x )
-
-		return (dot(cross(ac, ab), cross(ac, aq)) > 0) && (dot(cross(cb, ca), cross(cb, cq)) > 0)
-			&& (dot(cross(ba, bc), cross(ba, bq)) > 0);
-
-		};*/
+	Vec3 ab = vb.fb_position - va.fb_position;
+	Vec3 ac = vc.fb_position - va.fb_position;
+	Vec3 crossed = cross(ab, ac);
+	
+	// Figure out orientation
+	float area = 0.5f * crossed.z; 
+	//std::cout << "this is the area: " << area << std::endl;
+	// Check if the triangle is clockwise or counterclockwise
+	bool is_cw = (area < 0.0f);
+	//std::cout << "it's currently cw: " << is_cw << std::endl;
 
 	if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Flat) {
 		// A1T3: flat triangles
@@ -632,28 +626,67 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 				Vec3 q = Vec3(x + 0.5f, y + 0.5f, 0.0f);
 
 				if (in_triangle(va.fb_position, vb.fb_position, vc.fb_position, q)) {
+					// check with the top left rule
+					bool on_left_edge = false, on_top_edge = false;
+					bool in_mid = true;
 
-					// barycentric coordinates to interpolate depth
-					Vec3 ab = vb.fb_position - va.fb_position;
-					Vec3 ac = vc.fb_position - va.fb_position;
-					Vec3 aq = q - va.fb_position;
-
-					float area_abc = cross(ab, ac).z;
-					float alpha = cross(aq, ac).z / area_abc;
-					float beta = cross(ab, aq).z / area_abc;
-					float gamma = 1.0f - alpha - beta;
-
-					// interpolate the depth (z-value)
-					float z = alpha * va.fb_position.z + beta * vb.fb_position.z + gamma * vc.fb_position.z;
-
-					Fragment frag;
-					frag.fb_position = Vec3(x + 0.5f, y + 0.5f, z);
-
-					// attribute interpolation based on the flags
-					if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Flat) {
-						frag.attributes = va.attributes;
+					if (is_on_edge(va.fb_position, vb.fb_position, q)) {
+						if (is_cw ? (va.fb_position.y < vb.fb_position.y) : (va.fb_position.y > vb.fb_position.y)) {
+							on_left_edge = true;
+						}
+						else if ((va.fb_position.y == vb.fb_position.y) && (va.fb_position.y > vc.fb_position.y)) {
+							on_top_edge = true;
+						}
+						in_mid = false;
 					}
-					emit_fragment(frag);
+					else if (is_on_edge(vb.fb_position, vc.fb_position, q)) {
+						if (is_cw ? (vb.fb_position.y < vc.fb_position.y) : (vb.fb_position.y > vc.fb_position.y)) {
+							on_left_edge = true;
+						}
+						else if (vb.fb_position.y == vc.fb_position.y && (vb.fb_position.y > va.fb_position.y)) {
+							on_top_edge = true;
+						}
+						in_mid = false;
+					}
+					else if (is_on_edge(vc.fb_position, va.fb_position, q)) {
+						if (is_cw ? (vc.fb_position.y < va.fb_position.y) : (vc.fb_position.y > va.fb_position.y)) {
+							on_left_edge = true;
+						}
+						else if (vc.fb_position.y == va.fb_position.y && (va.fb_position.y > vb.fb_position.y)) {
+							on_top_edge = true;
+						}
+						in_mid = false;
+					}
+
+					/*std::cout << "is it on left edge: " << on_left_edge << std::endl;
+					std::cout << "is it on top edge: " << on_top_edge << std::endl;*/
+
+					if ((on_left_edge && !on_top_edge) || (on_top_edge && !on_left_edge) || in_mid) {
+
+						if (q.y == std::min({ va.fb_position.y, vb.fb_position.y, vc.fb_position.y })) {
+							continue; // Skip the fragment on the bottom edge
+						}
+						//barycentric coordinates to interpolate depth
+						Vec3 aq = q - va.fb_position;
+
+						float area_abc = cross(ab, ac).z;
+						float alpha = cross(aq, ac).z / area_abc;
+						float beta = cross(ab, aq).z / area_abc;
+						float gamma = 1.0f - alpha - beta;
+
+						// interpolate the depth (z-value)
+						float z = alpha * va.fb_position.z + beta * vb.fb_position.z + gamma * vc.fb_position.z;
+
+						Fragment frag;
+						frag.fb_position = Vec3(x + 0.5f, y + 0.5f, z);
+
+						// attribute interpolation based on the flags
+						if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Flat) {
+							frag.attributes = va.attributes;
+						}
+						emit_fragment(frag);
+
+					}
 				}
 				}
 			}

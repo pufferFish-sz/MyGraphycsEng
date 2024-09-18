@@ -135,9 +135,6 @@ struct Pipeline {
 		std::function< void(Fragment const &) > const &emit_fragment //call with every fragment covered by the line
 	);
 
-	//static float computeLength(Vec2 vec);
-	//static bool exit_from_diamond(Vec2 pixel_center, Vec2 line_point);
-
 	static void rasterize_triangle(
 		ClippedVertex const &a, ClippedVertex const &b, ClippedVertex const &c, //triangle (a,b,c)
 		std::function< void(Fragment const &) > const &emit_fragment //call with every fragment covered by the triangle
