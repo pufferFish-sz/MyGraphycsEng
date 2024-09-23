@@ -570,10 +570,6 @@ template<PrimitiveType p, class P, uint32_t flags>
 void Pipeline<p, P, flags>::rasterize_triangle(
 	ClippedVertex const& va, ClippedVertex const& vb, ClippedVertex const& vc,
 	std::function<void(Fragment const&)> const& emit_fragment) {
-	// NOTE: it is okay to restructure this function to allow these tasks to use the
-	//  same code paths. Be aware, however, that all of them need to remain working!
-	//  (e.g., if you break Flat while implementing Correct, you won't get points
-	//   for Flat.)
 
 	// Use cross product to see if the point is in the triangle
 	auto in_triangle = [&](Vec3 a, Vec3 b, Vec3 c, Vec3 q) -> bool {
@@ -590,124 +586,229 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 		return (dot(cross(ac, ab), cross(ac, aq)) >= 0) && (dot(cross(cb, ca), cross(cb, cq)) >= 0)
 			&& (dot(cross(ba, bc), cross(ba, bq)) >= 0);
 
-	};
+		};
 
 	auto is_on_edge = [&](Vec3 a, Vec3 b, Vec3 q) {
 		Vec3 ab = b - a;
 		Vec3 aq = q - a;
 		return cross(ab, aq).z == 0.0f;
+		};
+
+	auto calculate_abc = [&](Vec3 q, ClippedVertex const& va, ClippedVertex const& vb, ClippedVertex const& vc) {
+		Vec3 params;
+		Vec3 ab = vb.fb_position - va.fb_position;
+		Vec3 ac = vc.fb_position - va.fb_position;
+		Vec3 bq = q - vb.fb_position;
+		Vec3 bc = vb.fb_position - vc.fb_position;
+		Vec3 cq = q - vc.fb_position;
+		Vec3 ca = vc.fb_position - va.fb_position;
+
+		float area_abc = cross(ab, ac).z;
+		float alpha = cross(bq, bc).z / area_abc;
+		float beta = cross(cq, ca).z / area_abc;
+		float gamma = 1.0f - alpha - beta;
+
+		params.x = alpha;
+		params.y = beta;
+		params.z = gamma;
+
+		return params;
+		};
+
+	// New Fragment
+	auto new_frag_smooth = [&](Vec3 q, ClippedVertex const& va, ClippedVertex const& vb, ClippedVertex const& vc) {
+		Vec3 params = calculate_abc(q, va, vb, vc);
+		float alpha = params.x;
+		float beta = params.y;
+		float gamma = params.z;
+
+		// interpolate the depth (z-value)
+		float z = alpha * va.fb_position.z + beta * vb.fb_position.z + gamma * vc.fb_position.z;
+
+		Fragment frag;
+		frag.fb_position = Vec3(q.x + 0.5f, q.y + 0.5f, z);
+		for (uint32_t i = 0; i < va.attributes.size(); ++i) { // interpolate the attributes
+			frag.attributes[i] = alpha * va.attributes[i] + beta * vb.attributes[i] + gamma * vc.attributes[i];
+		}
+		return frag;
 	};
+
+	// New Fragment
+	auto new_frag_correct = [&](Vec3 q, ClippedVertex const& va, ClippedVertex const& vb, ClippedVertex const& vc) {
+			//barycentric coordinates to interpolate depth
+			Vec3 params = calculate_abc(q, va, vb, vc);
+			float alpha = params.x;
+			float beta = params.y;
+			float gamma = params.z;
+
+			// interpolate inv_w using barycentric coordinates
+			float inv_w_interpolated = alpha * va.inv_w + beta * vb.inv_w + gamma * vc.inv_w;
+
+			Fragment frag;
+			// interpolate the attributes divided by w (inv_w) using barycentric coordinates
+			for (uint32_t i = 0; i < va.attributes.size(); ++i) {
+				// attribute at each vertex divided by w
+				float Pa = va.attributes[i] * va.inv_w;
+				float Pb = vb.attributes[i] * vb.inv_w;
+				float Pc = vc.attributes[i] * vc.inv_w;
+
+				// interpolate the attribute
+				float P_interpolated = alpha * Pa + beta * Pb + gamma * Pc;
+
+				frag.attributes[i] = P_interpolated / inv_w_interpolated;
+			}
+			return frag;
+		};
+
 
 	Vec3 ab = vb.fb_position - va.fb_position;
 	Vec3 ac = vc.fb_position - va.fb_position;
 	Vec3 crossed = cross(ab, ac);
-	
+
 	// Figure out orientation
-	float area = 0.5f * crossed.z; 
+	float area = 0.5f * crossed.z;
 	//std::cout << "this is the area: " << area << std::endl;
 	// Check if the triangle is clockwise or counterclockwise
 	bool is_cw = (area < 0.0f);
 	//std::cout << "it's currently cw: " << is_cw << std::endl;
 
-	if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Flat) {
-		// A1T3: flat triangles
+	// bounding box of the triangle
+	float minX = std::min({ va.fb_position.x, vb.fb_position.x, vc.fb_position.x });
+	float minY = std::min({ va.fb_position.y, vb.fb_position.y, vc.fb_position.y });
+	float maxX = std::max({ va.fb_position.x, vb.fb_position.x, vc.fb_position.x });
+	float maxY = std::max({ va.fb_position.y, vb.fb_position.y, vc.fb_position.y });
 
-		// bounding box of the triangle
-		float minX = std::min({ va.fb_position.x, vb.fb_position.x, vc.fb_position.x });
-		float minY = std::min({ va.fb_position.y, vb.fb_position.y, vc.fb_position.y });
-		float maxX = std::max({ va.fb_position.x, vb.fb_position.x, vc.fb_position.x });
-		float maxY = std::max({ va.fb_position.y, vb.fb_position.y, vc.fb_position.y });
+	// iterate over the bounding box and check if each point is in the triangle
+	for (int y = static_cast<int> (std::floor(minY)); y <= static_cast<int> (std::ceil(maxY)); ++y) {
+		for (int x = static_cast<int> (std::floor(minX)); x <= static_cast<int> (std::ceil(maxX)); ++x) {
 
-		// iterate over the bounding box and check if each point is in the triangle
-		for (int y = static_cast<int> (std::floor(minY)); y <= static_cast<int> (std::ceil(maxY)); ++y) {
-			for (int x = static_cast<int> (std::floor(minX)); x <= static_cast<int> (std::ceil(maxX)); ++x) {
+			// center of the pixel
+			Vec3 q = Vec3(x + 0.5f, y + 0.5f, 0.0f);
 
-				// center of the pixel
-				Vec3 q = Vec3(x + 0.5f, y + 0.5f, 0.0f);
+			if (in_triangle(va.fb_position, vb.fb_position, vc.fb_position, q)) {
+				// check with the top left rule
+				bool on_left_edge = false, on_top_edge = false;
+				bool in_mid = true;
 
-				if (in_triangle(va.fb_position, vb.fb_position, vc.fb_position, q)) {
-					// check with the top left rule
-					bool on_left_edge = false, on_top_edge = false;
-					bool in_mid = true;
-
-					if (is_on_edge(va.fb_position, vb.fb_position, q)) {
-						if (is_cw ? (va.fb_position.y < vb.fb_position.y) : (va.fb_position.y > vb.fb_position.y)) {
-							on_left_edge = true;
-						}
-						else if ((va.fb_position.y == vb.fb_position.y) && (va.fb_position.y > vc.fb_position.y)) {
-							on_top_edge = true;
-						}
-						in_mid = false;
+				if (is_on_edge(va.fb_position, vb.fb_position, q)) {
+					if (is_cw ? (va.fb_position.y < vb.fb_position.y) : (va.fb_position.y > vb.fb_position.y)) {
+						on_left_edge = true;
 					}
-					else if (is_on_edge(vb.fb_position, vc.fb_position, q)) {
-						if (is_cw ? (vb.fb_position.y < vc.fb_position.y) : (vb.fb_position.y > vc.fb_position.y)) {
-							on_left_edge = true;
-						}
-						else if (vb.fb_position.y == vc.fb_position.y && (vb.fb_position.y > va.fb_position.y)) {
-							on_top_edge = true;
-						}
-						in_mid = false;
+					else if ((va.fb_position.y == vb.fb_position.y) && (va.fb_position.y > vc.fb_position.y)) {
+						on_top_edge = true;
 					}
-					else if (is_on_edge(vc.fb_position, va.fb_position, q)) {
-						if (is_cw ? (vc.fb_position.y < va.fb_position.y) : (vc.fb_position.y > va.fb_position.y)) {
-							on_left_edge = true;
-						}
-						else if (vc.fb_position.y == va.fb_position.y && (va.fb_position.y > vb.fb_position.y)) {
-							on_top_edge = true;
-						}
-						in_mid = false;
+					in_mid = false;
+				}
+				else if (is_on_edge(vb.fb_position, vc.fb_position, q)) {
+					if (is_cw ? (vb.fb_position.y < vc.fb_position.y) : (vb.fb_position.y > vc.fb_position.y)) {
+						on_left_edge = true;
 					}
+					else if (vb.fb_position.y == vc.fb_position.y && (vb.fb_position.y > va.fb_position.y)) {
+						on_top_edge = true;
+					}
+					in_mid = false;
+				}
 
-					/*std::cout << "is it on left edge: " << on_left_edge << std::endl;
-					std::cout << "is it on top edge: " << on_top_edge << std::endl;*/
+				else if (is_on_edge(vc.fb_position, va.fb_position, q)) {
+					if (is_cw ? (vc.fb_position.y < va.fb_position.y) : (vc.fb_position.y > va.fb_position.y)) {
+						on_left_edge = true;
+					}
+					else if (vc.fb_position.y == va.fb_position.y && (va.fb_position.y > vb.fb_position.y)) {
+						on_top_edge = true;
+					}
+					in_mid = false;
+				}
 
-					if ((on_left_edge && !on_top_edge) || (on_top_edge && !on_left_edge) || in_mid) {
+				if ((on_left_edge && !on_top_edge) || (on_top_edge && !on_left_edge) || in_mid) {
 
-						if (q.y == std::min({ va.fb_position.y, vb.fb_position.y, vc.fb_position.y })) {
-							continue; // Skip the fragment on the bottom edge
+					if (q.y == std::min({ va.fb_position.y, vb.fb_position.y, vc.fb_position.y })) {
+						continue; // Skip the fragment on the bottom edge
+					}
+					//barycentric coordinates to interpolate depth
+					Vec3 aq = q - va.fb_position;
+					Vec3 bq = q - vb.fb_position;
+					Vec3 bc = vb.fb_position - vc.fb_position;
+					Vec3 cq = q - vc.fb_position;
+					Vec3 ca = vc.fb_position - va.fb_position;
+
+					float area_abc = cross(ab, ac).z;
+					float alpha = cross(bq, bc).z / area_abc;
+					float beta = cross(cq, ca).z / area_abc;
+					float gamma = 1.0f - alpha - beta;
+
+					// interpolate the depth (z-value)
+					float z = alpha * va.fb_position.z + beta * vb.fb_position.z + gamma * vc.fb_position.z;
+
+					Fragment frag;
+					frag.fb_position = Vec3(x + 0.5f, y + 0.5f, z);
+
+					if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Flat) {
+
+						// A1T3: flat triangles
+						frag.attributes = va.attributes;
+						emit_fragment(frag);
+					}
+					else if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Smooth) {
+						// A1T5: screen-space smooth triangles
+						//if Interp_Smooth: interpolate as if (a, b, c) is a 2D triangle flat on the screen
+
+						for (uint32_t i = 0; i < va.attributes.size(); ++i) { // interpolate the attributes
+							frag.attributes[i] = alpha * va.attributes[i] + beta * vb.attributes[i] + gamma * vc.attributes[i];
 						}
-						//barycentric coordinates to interpolate depth
-						Vec3 aq = q - va.fb_position;
+						// the derivate would be just computing the 2x2 block, top pixel and right pixel, change in screen space
+						//calculate frag attribute at (x + 1, y)
+						Fragment frag1 = new_frag_smooth(Vec3(q.x + 1, q.y, q.z),va,vb,vc);
+						//calculate frag attribute at (x, y - 1)
+						Fragment frag2 = new_frag_smooth(Vec3(q.x, q.y - 1, q.z),va,vb,vc);
 
-						float area_abc = cross(ab, ac).z;
-						float alpha = cross(aq, ac).z / area_abc;
-						float beta = cross(ab, aq).z / area_abc;
-						float gamma = 1.0f - alpha - beta;
-
-						// interpolate the depth (z-value)
-						float z = alpha * va.fb_position.z + beta * vb.fb_position.z + gamma * vc.fb_position.z;
-
-						Fragment frag;
-						frag.fb_position = Vec3(x + 0.5f, y + 0.5f, z);
-
-						// attribute interpolation based on the flags
-						if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Flat) {
-							frag.attributes = va.attributes;
+						// calculate the derivatives
+						for (uint32_t i = 0; i < frag1.attributes.size(); ++i) {
+							frag.derivatives[i].x = (frag1.attributes[i] - frag.attributes[i]);
+							frag.derivatives[i].y = (frag.attributes[i] - frag2.attributes[i]);
 						}
 						emit_fragment(frag);
-
 					}
-				}
+					else if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Correct) {
+						// A1T5: perspective correct triangles
+						//interpolate inv_w for all three points because they all have different z
+
+						// interpolate inv_w using barycentric coordinates
+						float inv_w_interpolated = alpha * va.inv_w + beta * vb.inv_w + gamma * vc.inv_w;
+
+						// interpolate the attributes divided by w (inv_w) using barycentric coordinates
+						for (uint32_t i = 0; i < va.attributes.size(); ++i) {
+							// attribute at each vertex divided by w
+							float Pa = va.attributes[i] * va.inv_w;
+							float Pb = vb.attributes[i] * vb.inv_w;
+							float Pc = vc.attributes[i] * vc.inv_w;
+
+							// interpolate the attribute
+							float P_interpolated = alpha * Pa + beta * Pb + gamma * Pc;
+
+							frag.attributes[i] = P_interpolated / inv_w_interpolated;
+						}
+
+						//calculate frag attribute at (x + 1, y)
+						Fragment frag1 = new_frag_correct(Vec3(q.x + 1, q.y, q.z),va, vb, vc);
+						//calculate frag attribute at (x, y - 1)
+						Fragment frag2 = new_frag_correct(Vec3(q.x, q.y - 1, q.z),va, vb, vc);
+
+						// calculate the derivatives
+						for (uint32_t i = 0; i < frag1.attributes.size(); ++i) {
+							frag.derivatives[i].x = (frag1.attributes[i] - frag.attributes[i]);
+							frag.derivatives[i].y = (frag.attributes[i] - frag2.attributes[i]);
+						}
+
+						emit_fragment(frag);
+
+						}
+					}
+
 				}
 			}
 		}
-	else if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Smooth) {
-		// A1T5: screen-space smooth triangles
-		// TODO: rasterize triangle (see block comment above this function).
+	}
 
-		// As a placeholder, here's code that calls the Flat interpolation version of the function:
-		//(remove this and replace it with a real solution)
-		Pipeline<PrimitiveType::Lines, P, (flags & ~PipelineMask_Interp) | Pipeline_Interp_Flat>::rasterize_triangle(va, vb, vc, emit_fragment);
-	}
-	else if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Correct) {
-		// A1T5: perspective correct triangles
-		// TODO: rasterize triangle (block comment above this function).
-
-		// As a placeholder, here's code that calls the Screen-space interpolation function:
-		//(remove this and replace it with a real solution)
-		Pipeline<PrimitiveType::Lines, P, (flags & ~PipelineMask_Interp) | Pipeline_Interp_Smooth>::rasterize_triangle(va, vb, vc, emit_fragment);
-	}
-	}
 
 //-------------------------------------------------------------------------
 // compile instantiations for all programs and blending and testing types:
