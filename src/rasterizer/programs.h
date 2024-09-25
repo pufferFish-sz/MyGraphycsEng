@@ -123,7 +123,12 @@ struct Lambertian {
 		// reading onward, you will discover that \rho can be computed in a number of ways
 		//  it is up to you to select one that makes sense in this context
 
-		float lod = 0.0f; //<-- replace this line
+		float du_dx = wh.x * fdx_texcoord.x;
+		float dv_dx = wh.y * fdx_texcoord.y;
+		float du_dy = wh.x * fdy_texcoord.x;
+		float dv_dy = wh.y * fdy_texcoord.y;
+		float L = std::max(sqrtf(powf(du_dx, 2) + powf(dv_dx, 2)), sqrtf(powf(du_dy, 2) + powf(dv_dy, 2)));
+		float lod = log2f(L);
 		//-----
 
 		Vec3 normal = fa_normal.unit();
