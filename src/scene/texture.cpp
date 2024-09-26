@@ -73,7 +73,7 @@ Spectrum sample_trilinear(HDR_Image const &base, std::vector< HDR_Image > const 
 	}
 	// if the lod is more than the levels
 	int lod0 = int(std::floor(lod));
-	if (lod0 >= levels.size()) {
+	if (lod0 >= int(levels.size())) {
 		return sample_bilinear(levels[levels.size() - 1], uv);
 	}
 
