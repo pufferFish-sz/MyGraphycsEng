@@ -778,10 +778,8 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 						//calculate frag attribute at (x, y - 1)
 						Fragment frag2 = new_frag_smooth(Vec3(q.x, q.y - 1, q.z),va,vb,vc);
 
-						assert(frag.attributes.size() == frag1.attributes.size());
-						assert(frag.attributes.size() == frag2.attributes.size());
 						// calculate the derivatives
-						for (uint32_t i = 0; i < frag1.attributes.size(); ++i) {
+						for (uint32_t i = 0; i < std::min(frag1.attributes.size(), frag1.derivatives.size()); ++i) {
 							frag.derivatives[i].x = (frag1.attributes[i] - frag.attributes[i]);
 							frag.derivatives[i].y = (frag.attributes[i] - frag2.attributes[i]);
 						}
@@ -817,7 +815,7 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 						assert(frag.attributes.size() == frag2.attributes.size());
 
 						// calculate the derivatives
-						for (uint32_t i = 0; i < frag1.attributes.size(); ++i) {
+						for (uint32_t i = 0; i < std::min(frag1.attributes.size(), frag1.derivatives.size()); ++i) {
 							frag.derivatives[i].x = (frag1.attributes[i] - frag.attributes[i]);
 							frag.derivatives[i].y = (frag.attributes[i] - frag2.attributes[i]);
 						}
