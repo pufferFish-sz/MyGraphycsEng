@@ -61,7 +61,7 @@ You do not need any screenshots for this task. However, please answer the follow
 * What combination of blend and depth styles would enable us to see three colors?
     * Red: Blend: Add , Depth: Less
     * Green: Blend: Over , Depth: Always
-    * Blue: Blend: Add, Depth: Less 
+    * Blue: Blend: Add, Depth: Less
 * What combination of blend and depth styles would enable us to see five colors?
     * Red: Blend: Add, Depth: Less
     * Green: Blend: Add, Depth: Less
@@ -103,6 +103,13 @@ Insert a picture of your sample pattern here (up to you on how you created it):
 
 Explanation of what your SamplePattern does and scenarios it would do well and poorly in:
 
+This sample pattern is random sampling. Currently, it does 64 samples per pixel, and generate
+a number between 0.0f and 1.0f and then deducts 0.5f to get the offset away from the pixel center.
+Every single sample gets an equal weight, so each of them is 1 / number of samples. This works well with
+high number of samples, but not with low numbers. After multiple trials, it has been tested that
+21 samples is the critical boundary point. Anything below this number gets either a crooked result or
+doesn't render at all.
+
 Your completion will be graded based on the above answer, the reference `test.a1.task7.cpp` file and
 checking that rasterizing the samplers scene will look decent.
 
@@ -110,11 +117,13 @@ checking that rasterizing the samplers scene will look decent.
 
 Your image:
 <div class="twentytwenty-container">
-    <img src="A1-writeup/reference/rasterize_image.png" alt="Your creation">
+    <img src="A1-writeup/reference/rasterize_image.png" alt="Hamburger">
 </div>
 Explanation of what it is and how you made it:
+This is a hamburger sourced from poly.pizza
 
 Any free model sources you need to credit?
+Yes, Hamburger by jeremy [CC-BY] via Poly Pizza
 
 (##) EXTRA CREDIT FINAL
 
