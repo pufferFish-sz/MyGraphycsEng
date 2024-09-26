@@ -1,4 +1,5 @@
 #include "sample_pattern.h"
+#include <random>
 
 std::vector<SamplePattern> const& SamplePattern::all_patterns() {
 	// helper to make grid-like sampling patterns:
@@ -31,8 +32,26 @@ std::vector<SamplePattern> const& SamplePattern::all_patterns() {
 		// Please don't change the name or id
 		const uint32_t id = 0;
 		const std::string name = "Custom Sample Pattern";
-		// This will cause it to segfault when used, so be sure to change it!
-		std::vector<Vec3> centers_and_weights = {};
+		
+		uint32_t num_samples = 64;
+
+		// random num generator
+		std::random_device rd;
+		std::mt19937 gen(rd());
+		std::uniform_real_distribution<> dis(0.0, 1.0);
+
+		std::vector<Vec3> centers_and_weights;
+		centers_and_weights.reserve(num_samples);
+
+		for (uint32_t i = 0; i < num_samples; ++i) {
+			float random_x = float(dis(gen) - 0.5f);
+			float random_y = float(dis(gen) - 0.5f);
+
+			//equal weight for all samples
+			float weight = 1 / float(num_samples);
+			centers_and_weights.emplace_back(Vec3{ random_x,random_y,weight});
+		}
+
 		return SamplePattern(id, name, centers_and_weights);
 	};
 	static std::vector<SamplePattern> all = [&]() {
