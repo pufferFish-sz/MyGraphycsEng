@@ -1,8 +1,12 @@
 #include "test.h"
 #include "geometry/halfedge.h"
+#include <iostream>
 
 static void expect_flip(Halfedge_Mesh &mesh, Halfedge_Mesh::EdgeRef edge, Halfedge_Mesh const &after) {
+	std::cout << "Initial mesh state:\n" << mesh.describe() << "\n";
 	if (auto ret = mesh.flip_edge(edge)) {
+
+		std::cout << "Mesh state after flip_edge:\n" << mesh.describe() << "\n";
 		if (auto msg = mesh.validate()) {
 			throw Test::error("Invalid mesh: " + msg.value().second);
 		}
@@ -95,4 +99,82 @@ Test test_a2_l1_flip_edge_edge_boundary("a2.l1.flip_edge.edge.boundary", []() {
 		throw Test::error("flip_edge should not work at the boundary.");
 	}
 });
+
+/*
+Edge CASE
+
+Initial mesh:
+0--1--2
+|  |  |
+|  |  |
+|  6  |
+|  |  |
+|  |  |
+3--4--5
+
+Flip Edge on Edge: 1-5
+
+After mesh:
+0--1--2
+|  |  |
+|  |  |
+|  6  |
+|  |  |
+|  |  |
+3--4--5
+*/
+Test test_a2_l1_flip_edge_edge_case("a2.l1.flip_edge.case", []() {
+	Halfedge_Mesh mesh = Halfedge_Mesh::from_indexed_faces({
+	 Vec3(0.0f, 0.0f, 0.0f), Vec3(2.0f, 0.0f, 0.0f),Vec3(4.0f, 0.0f, 0.0f),
+	 Vec3(0.0f, 4.0f, 0.0f), Vec3(2.0f, 4.0f, 0.0f), Vec3(4.0f, 4.0f, 0.0f),
+	 Vec3(2.0f,2.0f, 0.0f)
+		}, {
+		 {0, 1, 6, 4, 3},
+		 {1, 2, 5, 4,6}
+		});
+	Halfedge_Mesh::EdgeRef edge = mesh.halfedges.begin()->next->edge;
+
+	if (mesh.flip_edge(edge)) {
+		throw Test::error("flip_edge should not work creates wrong mesh - square case.");
+	}
+	});
+
+/*
+Edge CASE
+
+Initial mesh:
+0--1--2
+|  \  |
+|    7|
+|  /  |
+| 6   |
+|  \  |
+3--4--5
+
+Flip Edge on Edge: 6-7
+
+After mesh:
+0--1--2
+|  \  |
+|    7|
+|  /  |
+| 6   |
+|  \  |
+3--4--5
+*/
+Test test_a2_l1_flip_edge_zigzag_edge_case("a2.l1.flip_edge.case.zigzag", []() {
+	Halfedge_Mesh mesh = Halfedge_Mesh::from_indexed_faces({
+	 Vec3(0.0f, 0.0f, 0.0f), Vec3(2.0f, 0.0f, 0.0f),Vec3(4.0f, 0.0f, 0.0f),
+	 Vec3(0.0f, 4.0f, 0.0f), Vec3(2.0f, 4.0f, 0.0f), Vec3(4.0f, 4.0f, 0.0f),
+	 Vec3(1.0f,1.0f, 0.0f),Vec3(3.0f,3.0f, 0.0f),
+		}, {
+		 {0, 1, 7, 6, 4, 3},
+		 {1, 2, 5, 4,6,7}
+		});
+	Halfedge_Mesh::EdgeRef edge = mesh.halfedges.begin()->next->edge;
+
+	if (mesh.flip_edge(edge)) {
+		throw Test::error("flip_edge should not work creates wrong mesh - zigzag case.");
+	}
+	});
 

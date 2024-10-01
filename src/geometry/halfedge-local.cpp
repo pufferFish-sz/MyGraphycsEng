@@ -216,17 +216,132 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::bisect_edge(EdgeRef e) {
  * Note that when splitting the adjacent faces, the new edge
  * should connect to the vertex ccw from the ccw-most end of e
  * within the face.
- *
+	   v4--v2\
+		|  |  \
+		|  |   v3
+		|  |  /
+	    x--v1/
+ 
  * Do not split adjacent boundary faces.
  */
 std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(EdgeRef e) {
 	// A2L2 (REQUIRED): split_edge
+
+	// boundary case: doesn't subdivide faces
+
+	// non boundary case: subdivide face
+	// Phase 1: collect existing elements
+	HalfedgeRef h = e->halfedge;
+	HalfedgeRef t = h->twin;
+	VertexRef v1 = h->vertex;
+	VertexRef v2 = t->vertex;
+	FaceRef f1 = h->face;
+	FaceRef f2 = t->face;
+	VertexRef v3 = t->next->next->vertex;
+	VertexRef v4 = h->next->next->vertex;
+	HalfedgeRef h_one_after = h->next;
+	HalfedgeRef h_two_after = h->next->next;
+
+	uint32_t steps = 0;
+	HalfedgeRef t_one_before = t;
+	while (t_one_before->next != t) {
+		steps++;
+		t_one_before = t_one_before->next;
+	}
 	
-	(void)e; //this line avoids 'unused parameter' warnings. You can delete it as you fill in the function.
-    return std::nullopt;
+	HalfedgeRef t_two_before = t;
+	for (uint32_t i = 0; i < steps - 1; ++i) {
+		t_two_before = t_two_before->next;
+	}
+
+	// Phase 2: Allocate new elements, set data
+	// First bisect the edge
+	bisect_edge(e);
+	//get the components after bisecting
+	HalfedgeRef h_new = e->halfedge;
+	HalfedgeRef h2 = h_new->next;
+	VertexRef vm = h2->vertex;
+	HalfedgeRef t2 = h_new->twin;
+	HalfedgeRef t_new = h2->twin;
+	
+	EdgeRef e3 = emplace_edge();
+	HalfedgeRef h3 = emplace_halfedge();
+	interpolate_data({ h, h_two_after }, h3); //set corner_uv, corner_normal
+
+	HalfedgeRef t3 = emplace_halfedge();
+	interpolate_data({ h_one_after, h2 }, t3); //set corner_uv, corner_normal
+
+	HalfedgeRef h4 = emplace_halfedge();
+	interpolate_data({ t_new, t_one_before }, h4); //set corner_uv, corner_normal
+
+	EdgeRef e4 = emplace_edge();
+	HalfedgeRef t4 = emplace_halfedge();
+	interpolate_data({ t_two_before, t2 }, t4); //set corner_uv, corner_normal
+
+	FaceRef f1_prime = emplace_face();
+	FaceRef f2_prime = emplace_face();
+
+	// Phase 3: Reassign connectivity
+	// e3
+	e3->halfedge = h3;
+	// e4
+	e4->halfedge = t4;
+	// h3
+	h3->vertex = vm;
+	h3->twin = t3;
+	h3->next = h_two_after;
+	h3->edge = e3;
+	h3->face = f1;
+	// t3
+	t3->vertex = v4;
+	t3->twin = h3;
+	t3->next = h2;
+	t3->edge = e3;
+	t3->face = f1_prime;
+	// t4
+	t4->vertex = v3;
+	t4->twin = h4;
+	t4->next = t2;
+	t4->edge = e4;
+	t4->face = f2_prime;
+	// h4
+	h4->vertex = vm;
+	h4->twin = t4;
+	h4->next = t_one_before;
+	h4->edge = e4;
+	h4->face = f2;
+	// f1
+	f1->halfedge = h_new;
+	// f2
+	f2->halfedge = t_new;
+	// f1_prime
+	f1_prime->halfedge = h2;
+	// f2_prime
+	f2_prime->halfedge = t2;
+	// h_new
+	h_new->next = h3;
+	// t_2_before
+	t_two_before->next = t4;
+	// h_1_after
+	h_one_after->next = t3;
+	// t_new
+	t_new->next = h4;
+
+	// Update the `face` pointers for the halfedges involved in f1 and f2
+	HalfedgeRef curr = h2;
+	while (curr->next != h2) {
+		curr->face = f1_prime;
+		curr = curr->next;
+	}
+
+	HalfedgeRef curr1 = t2;
+	while (curr1->next != t2) {
+		curr1->face = f2_prime;
+		curr1 = curr1->next;
+	}
+	
+    return vm;
 }
-
-
 
 /*
  * inset_vertex: divide a face into triangles by placing a vertex at f->center()
@@ -331,8 +446,90 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::extrude_face(FaceRef f) {
  */
 std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(EdgeRef e) {
 	//A2L1: Flip Edge
+
+	// Phase 1: collect existing elements
+	HalfedgeRef h = e->halfedge;
+	HalfedgeRef t = h->twin;
+	VertexRef v1 = h->vertex;
+	VertexRef v2 = t->vertex;
+	FaceRef f1 = h->face;
+	FaceRef f2 = t->face;
+
+	// edge case 1: ensure the edge is not a boundary edge
+	if (f1->boundary || f2->boundary) {
+		return std::nullopt;
+	}
+
+	// edge case 2: ensure edge flip doesn' distort faces
+	uint32_t count = 0;
+
+	/*check to see if the num of steps needed to go around face 1 is 
+	the same as face 2*/
+	HalfedgeRef check_edgef1 = h;
+	while (check_edgef1->next != h) {
+		count++;
+		check_edgef1 = check_edgef1->next; 
+	}
+	count++;
+
+	HalfedgeRef check_edgef2 = t;
+	for (uint32_t i = 0; i < count; ++i) {
+		check_edgef2 = check_edgef2->next;
+	}
+	if (check_edgef2 == t) {
+		return std::nullopt;
+	}
 	
-    return std::nullopt;
+	// Phase 3: Reassign connectivity
+
+	//store edges refs for later use
+	HalfedgeRef h_next = h->next;
+	HalfedgeRef t_next = t->next;
+
+	HalfedgeRef h_next_next = h->next->next;
+	HalfedgeRef t_next_next = t->next->next;
+
+	HalfedgeRef last_edgef1 = h;
+	while (last_edgef1->next != h) {
+		last_edgef1 = last_edgef1->next;  // Find the previous halfedge around face 1
+	}
+
+	HalfedgeRef last_edgef2 = t;
+	while (last_edgef2->next != t) {
+		last_edgef2 = last_edgef2->next;  // Find the previous halfedge around face 2
+	}
+
+    //reassign the vertices
+	VertexRef v2_new = h->next->next->vertex;
+	VertexRef v1_new = t->next->next->vertex;
+
+	h->vertex = v1_new;
+	t->vertex = v2_new;
+	v1_new->halfedge = h;
+
+	//reassign next pointers
+	h->next = h_next_next;
+	t->next = t_next_next;
+
+	last_edgef1->next = t_next;
+	last_edgef2->next = h_next;
+
+	t_next->next = h;
+	h_next->next = t;
+
+	last_edgef1->next->vertex->halfedge = t_next;
+
+	// Phase 3: Reassign the face's starting halfedges
+	f1->halfedge = h;
+	f2->halfedge = t;
+
+	// Update the `face` pointers for the halfedges involved in f1 and f2
+	h_next->face = f2;
+	h_next_next->face = f1;
+	t_next->face = f1;
+	t_next_next->face = f2;
+
+	return e;
 }
 
 
