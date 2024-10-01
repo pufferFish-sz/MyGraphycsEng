@@ -589,7 +589,68 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 
 	//Reminder: use interpolate_data() to merge corner_uv / corner_normal data on halfedges
 	// (also works for bone_weights data on vertices!)
+	auto face_is_triangle = [&](HalfedgeRef e_prime) -> bool {
+		if (e_prime->next->next->next == e_prime) {
+			return true;
+		}
+		else return false;
+	};
+
+	// Phase 1: collect existing elements
+	HalfedgeRef h = e->halfedge;
+	HalfedgeRef t = h->twin;
+	VertexRef v1 = h->vertex;
+	VertexRef v2 = t->vertex;
+	FaceRef f1 = h->face;
+	FaceRef f2 = t->face;
+	HalfedgeRef h_one_before = h;
+	while (h_one_before->next != h) {
+		h_one_before = h_one_before->next;
+	}
+	HalfedgeRef t_next = t->next;
+
+	Vec3 v1_new_position = (v1->position + v2->position) / 2.0f;
+
+	//case 0: it is a single triangle: do nothing
+	if ((face_is_triangle(h) && f2->boundary) || (face_is_triangle(t) && f1->boundary)) {
+		if (h->next->face->boundary || t->next->face->boundary) {
+			if (h->next->next->face->boundary || t->next->next->face->boundary) {
+				return std::nullopt;
+			}
+		}
+	}
 	
+	////case 1: one of the faces is a triangle and on the edge: need to delete more stuff
+	//if ((f1->boundary || f2->boundary) && (face_is_triangle(h) || face_is_triangle(t))) {
+	//	//delete edge and edge next 
+	//}
+
+	//case 2: both faces of the given edge not a triangle 
+	if (!face_is_triangle(h) && !face_is_triangle(t)) {
+		uint32_t v2_degree = v2->degree();
+		HalfedgeRef curr = v2->halfedge;
+		for (uint32_t i = 0; i < v2_degree - 1; ++i) {
+			//whatever is connected with v2 gets reconnected with v1
+			if (curr != t) {
+				curr->vertex = v1;
+				v1->halfedge = curr;
+				if (i == 0) { // check the first one
+					h_one_before->next = curr;
+				}
+				else if (i == v2_degree - 2) { // check the last one
+					curr->twin->next = t_next;
+				}
+			}
+			curr = curr->twin->next;
+		}
+		erase_edge(e);
+		erase_halfedge(h);
+		erase_halfedge(t);
+		erase_vertex(v2);
+		v1->position = v1_new_position;
+		return v1;
+	}
+
     return std::nullopt;
 }
 

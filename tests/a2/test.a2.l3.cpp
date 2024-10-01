@@ -1,8 +1,11 @@
 #include "test.h"
 #include "geometry/halfedge.h"
+#include <iostream>
 
 static void expect_collapse(Halfedge_Mesh &mesh, Halfedge_Mesh::EdgeRef edge, Halfedge_Mesh const &after) {
+	std::cout << "Initial mesh state:\n" << mesh.describe() << "\n";
 	if (auto ret = mesh.collapse_edge(edge)) {
+		std::cout << "Mesh state after split_edge:\n" << mesh.describe() << "\n";
 		if (auto msg = mesh.validate()) {
 			throw Test::error("Invalid mesh: " + msg.value().second);
 		}
