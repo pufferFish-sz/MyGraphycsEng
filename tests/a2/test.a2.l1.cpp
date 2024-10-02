@@ -1,12 +1,12 @@
 #include "test.h"
 #include "geometry/halfedge.h"
-#include <iostream>
+//#include <iostream>
 
 static void expect_flip(Halfedge_Mesh &mesh, Halfedge_Mesh::EdgeRef edge, Halfedge_Mesh const &after) {
-	std::cout << "Initial mesh state:\n" << mesh.describe() << "\n";
+	//std::cout << "Initial mesh state:\n" << mesh.describe() << "\n";
 	if (auto ret = mesh.flip_edge(edge)) {
 
-		std::cout << "Mesh state after flip_edge:\n" << mesh.describe() << "\n";
+		//std::cout << "Mesh state after flip_edge:\n" << mesh.describe() << "\n";
 		if (auto msg = mesh.validate()) {
 			throw Test::error("Invalid mesh: " + msg.value().second);
 		}

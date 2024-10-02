@@ -113,3 +113,40 @@ Test test_a2_l3_collapse_edge_edge_boundary("a2.l3.collapse_edge.edge.boundary",
 
 	expect_collapse(mesh, edge, after);
 });
+
+/*
+EDGE CASE single triangle
+
+Initial mesh:
+0
+|\
+| \
+|  \
+1---2
+
+Collapse Edge on Edge: 0-2
+
+After mesh:
+0
+|\
+| \
+|  \
+1---2
+
+(reject)
+*/
+Test test_a2_l3_collapse_edge_triangle("a2.l3.collapse_edge.triangle", []() {
+	Halfedge_Mesh mesh = Halfedge_Mesh::from_indexed_faces({
+	 Vec3(0.0f, 2.0f, 0.0f),
+	 Vec3(0.0f, 0.0f, 0.0f),  Vec3(2.0f, 0.0f, 0.0f)
+		}, {
+		 {0, 2, 1}
+		});
+
+	Halfedge_Mesh::EdgeRef edge = mesh.halfedges.begin()->edge;
+
+	if (mesh.collapse_edge(edge)) {
+		throw Test::error("collapse_edge should not work for single triangles.");
+	}
+	});
+

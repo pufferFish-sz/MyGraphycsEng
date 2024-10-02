@@ -226,10 +226,14 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::bisect_edge(EdgeRef e) {
  */
 std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(EdgeRef e) {
 	// A2L2 (REQUIRED): split_edge
+	auto update_face = [&](HalfedgeRef curr_edge, FaceRef target_face) {
+		HalfedgeRef curr = curr_edge;
+		do {
+			curr->face = target_face;
+			curr = curr->next;
+		} while (curr != curr_edge);
+		};
 
-	// boundary case: doesn't subdivide faces
-
-	// non boundary case: subdivide face
 	// Phase 1: collect existing elements
 	HalfedgeRef h = e->halfedge;
 	HalfedgeRef t = h->twin;
@@ -271,6 +275,48 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(EdgeRef e) {
 	HalfedgeRef t3 = emplace_halfedge();
 	interpolate_data({ h_one_after, h2 }, t3); //set corner_uv, corner_normal
 
+	FaceRef f1_prime = emplace_face();
+
+	// boundary case: doesn't subdivide faces
+	if (f1->boundary || f2->boundary) {
+		HalfedgeRef inner_halfedge;
+		
+		if (f1->boundary) {
+			inner_halfedge = t2;
+		}
+		else {
+			inner_halfedge = h2;
+		}
+
+		// e3
+		e3->halfedge = h3;
+
+		// h3
+		h3->vertex = inner_halfedge->next->next->vertex; 
+		h3->next = h2;
+		h3->edge = e3;
+		h3->twin = t3;
+
+		// t3 
+		t3->vertex = vm; 
+		t3->next = h_two_after;
+		t3->edge = e3;
+		t3->twin = h3;
+
+		h_one_after->next = h3;  
+		h_new->next = t3; 
+
+		// Update the face pointers
+		update_face(h3, f1_prime);
+		update_face(t3, f1);
+		f1_prime->halfedge = h3;
+		f1->halfedge = h_new;
+
+		// Return the new midpoint vertex
+		return vm;
+	}
+
+	// non boundary case: subdivide face
 	HalfedgeRef h4 = emplace_halfedge();
 	interpolate_data({ t_new, t_one_before }, h4); //set corner_uv, corner_normal
 
@@ -278,7 +324,6 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(EdgeRef e) {
 	HalfedgeRef t4 = emplace_halfedge();
 	interpolate_data({ t_two_before, t2 }, t4); //set corner_uv, corner_normal
 
-	FaceRef f1_prime = emplace_face();
 	FaceRef f2_prime = emplace_face();
 
 	// Phase 3: Reassign connectivity
@@ -328,17 +373,8 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(EdgeRef e) {
 	t_new->next = h4;
 
 	// Update the `face` pointers for the halfedges involved in f1 and f2
-	HalfedgeRef curr = h2;
-	while (curr->next != h2) {
-		curr->face = f1_prime;
-		curr = curr->next;
-	}
-
-	HalfedgeRef curr1 = t2;
-	while (curr1->next != t2) {
-		curr1->face = f2_prime;
-		curr1 = curr1->next;
-	}
+	update_face(h2, f1_prime);
+	update_face(t2, f2_prime);
 	
     return vm;
 }
@@ -446,6 +482,13 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::extrude_face(FaceRef f) {
  */
 std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(EdgeRef e) {
 	//A2L1: Flip Edge
+	auto update_face = [&](HalfedgeRef curr_edge, FaceRef target_face) {
+		HalfedgeRef curr = curr_edge;
+		do {
+			curr->face = target_face;
+			curr = curr->next;
+		} while (curr != curr_edge);
+		};
 
 	// Phase 1: collect existing elements
 	HalfedgeRef h = e->halfedge;
@@ -454,34 +497,20 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(EdgeRef e) {
 	VertexRef v2 = t->vertex;
 	FaceRef f1 = h->face;
 	FaceRef f2 = t->face;
-
+	uint32_t v1_degree = v1->degree();
+	uint32_t v2_degree = v2->degree();
 	// edge case 1: ensure the edge is not a boundary edge
 	if (f1->boundary || f2->boundary) {
 		return std::nullopt;
 	}
 
-	// edge case 2: ensure edge flip doesn' distort faces
-	uint32_t count = 0;
-
-	/*check to see if the num of steps needed to go around face 1 is 
-	the same as face 2*/
-	HalfedgeRef check_edgef1 = h;
-	while (check_edgef1->next != h) {
-		count++;
-		check_edgef1 = check_edgef1->next; 
-	}
-	count++;
-
-	HalfedgeRef check_edgef2 = t;
-	for (uint32_t i = 0; i < count; ++i) {
-		check_edgef2 = check_edgef2->next;
-	}
-	if (check_edgef2 == t) {
-		return std::nullopt;
+	 //edge case 2: ensure edge flip doesn' distort faces
+	 //check if the edge is flippable
+	if ((v1_degree == 2) || (v2_degree == 2) ) {
+		return std::nullopt; // Invalid flip
 	}
 	
 	// Phase 3: Reassign connectivity
-
 	//store edges refs for later use
 	HalfedgeRef h_next = h->next;
 	HalfedgeRef t_next = t->next;
@@ -524,10 +553,8 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(EdgeRef e) {
 	f2->halfedge = t;
 
 	// Update the `face` pointers for the halfedges involved in f1 and f2
-	h_next->face = f2;
-	h_next_next->face = f1;
-	t_next->face = f1;
-	t_next_next->face = f2;
+	update_face(h, f1);
+	update_face(t, f2);
 
 	return e;
 }
@@ -608,26 +635,65 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 		h_one_before = h_one_before->next;
 	}
 	HalfedgeRef t_next = t->next;
+	HalfedgeRef h_one_after = h->next;
+	HalfedgeRef t_of_h_one_after = h_one_after->next;
+	EdgeRef e_one_after = h_one_after->edge;
 
 	Vec3 v1_new_position = (v1->position + v2->position) / 2.0f;
 
-	//case 0: it is a single triangle: do nothing
-	if ((face_is_triangle(h) && f2->boundary) || (face_is_triangle(t) && f1->boundary)) {
-		if (h->next->face->boundary || t->next->face->boundary) {
-			if (h->next->next->face->boundary || t->next->next->face->boundary) {
-				return std::nullopt;
-			}
-		}
-	}
-	
-	////case 1: one of the faces is a triangle and on the edge: need to delete more stuff
-	//if ((f1->boundary || f2->boundary) && (face_is_triangle(h) || face_is_triangle(t))) {
-	//	//delete edge and edge next 
+	uint32_t v2_degree = v2->degree();
+	uint32_t v1_degree = v1->degree();
+
+	////case 0: it is a single triangle: do nothing
+	//if ((face_is_triangle(h) && f2->boundary) || (face_is_triangle(t) && f1->boundary)) {
+	//	if (h->next->face->boundary || t->next->face->boundary) {
+	//		if (h->next->next->face->boundary || t->next->next->face->boundary) {
+	//			std::cout << "it came to reject! " << std::endl;
+	//			return std::nullopt;
+	//		}
+	//	}
 	//}
+	
+	//case 1: one of the faces is a triangle and on the edge: need to delete more stuff
+	if ((f1->boundary || f2->boundary) && (face_is_triangle(h) || face_is_triangle(t))) {
+		std::cout << "it came to the boundary triangle case !!!!!! " << std::endl;
+		HalfedgeRef curr = v2->halfedge;
+		for (uint32_t i = 0; i < v2_degree - 1; ++i) {
+			//whatever is connected with v2 gets reconnected with v1
+			if (curr != t && curr!= t_of_h_one_after) {
+				curr->vertex = v1;
+				v1->halfedge = curr;
+				if (i == 0) { // check the first one
+					h_one_before->next = curr;
+				}
+				else if (i == v2_degree - 2) { // check the last one
+					curr->twin->next = t_next;
+				}
+			}
+			curr = curr->twin->next;
+		}
+		//erase the edge
+		erase_edge(e);
+		erase_halfedge(h);
+		erase_halfedge(t);
+		erase_vertex(v2);
+		//erase the following one as well
+		erase_edge(e_one_after);
+		erase_halfedge(h_one_after);
+		erase_halfedge(t_of_h_one_after);
+		v1->position = v1_new_position;
+		return v1;
+	}
 
 	//case 2: both faces of the given edge not a triangle 
 	if (!face_is_triangle(h) && !face_is_triangle(t)) {
-		uint32_t v2_degree = v2->degree();
+		std::cout << "it came to the non triangle case! " << std::endl;
+		if ((v2_degree <= 3) && (v1_degree <= 3)) { // case 3: hourglass shape, non manifold
+			if ((h->next->next->twin->face->boundary) && (t->next->next->twin->face->boundary)) {
+				return std::nullopt;
+			}
+		}
+		//uint32_t v2_degree = v2->degree();
 		HalfedgeRef curr = v2->halfedge;
 		for (uint32_t i = 0; i < v2_degree - 1; ++i) {
 			//whatever is connected with v2 gets reconnected with v1
@@ -650,7 +716,7 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 		v1->position = v1_new_position;
 		return v1;
 	}
-
+	//std::cout << "it came to reject! " << std::endl;
     return std::nullopt;
 }
 
