@@ -237,8 +237,8 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(EdgeRef e) {
 	// Phase 1: collect existing elements
 	HalfedgeRef h = e->halfedge;
 	HalfedgeRef t = h->twin;
-	VertexRef v1 = h->vertex;
-	VertexRef v2 = t->vertex;
+	//VertexRef v1 = h->vertex;
+	//VertexRef v2 = t->vertex;
 	FaceRef f1 = h->face;
 	FaceRef f2 = t->face;
 	VertexRef v3 = t->next->next->vertex;
@@ -473,18 +473,18 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::extrude_face(FaceRef f) {
 		} while (curr != curr_edge);
 		};
 
-	auto figure_one_before = [](HalfedgeRef curr_edge) {
+	/*auto figure_one_before = [](HalfedgeRef curr_edge) {
 		HalfedgeRef curr = curr_edge;
 		do {
 			curr = curr->next;
 		} while (curr->next != curr_edge);
 		return curr;
-		};
+		};*/
 
 	// Phase 1: collect existing elements
 	HalfedgeRef h = f->halfedge;
 	HalfedgeRef t = h->twin;
-	FaceRef outsideFace = t->face;
+	//FaceRef outsideFace = t->face;
 	EdgeRef e = h->edge;
 	int iteration = 0;
 	HalfedgeRef last_half_edge = t->next->twin;
@@ -507,7 +507,7 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::extrude_face(FaceRef f) {
 		//get vertices on the edge
 		VertexRef v1 = curr->vertex;
 		t = curr->twin;
-		VertexRef v2 = t->vertex;
+		//VertexRef v2 = t->vertex;
 		uint32_t v1_degree = v1->degree();
 
 		//make a new vertex
@@ -822,13 +822,13 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 		else return false;
 	};
 
-	auto find_rightmost_edge = [&](HalfedgeRef working_edge) {
+	/*auto find_rightmost_edge = [&](HalfedgeRef working_edge) {
 		HalfedgeRef rightmost_edge = working_edge;
 		do {
 			rightmost_edge = rightmost_edge->twin->next;
 		} while (!rightmost_edge->face->boundary);
 		return rightmost_edge;
-		};
+		};*/
 
 	auto find_prev_edge = [&](HalfedgeRef working_edge) {
 		HalfedgeRef prev_edge = working_edge;
