@@ -465,8 +465,200 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::extrude_face(FaceRef f) {
 	// Reminder: This function does not update the vertex positions.
 	// Remember to also fill in extrude_helper (A2L4h)
 
-	(void)f;
-    return std::nullopt;
+	auto update_face = [&](HalfedgeRef curr_edge, FaceRef target_face) {
+		HalfedgeRef curr = curr_edge;
+		do {
+			curr->face = target_face;
+			curr = curr->next;
+		} while (curr != curr_edge);
+		};
+
+	auto figure_one_before = [](HalfedgeRef curr_edge) {
+		HalfedgeRef curr = curr_edge;
+		do {
+			curr = curr->next;
+		} while (curr->next != curr_edge);
+		return curr;
+		};
+
+	// Phase 1: collect existing elements
+	HalfedgeRef h = f->halfedge;
+	HalfedgeRef t = h->twin;
+	FaceRef outsideFace = t->face;
+	EdgeRef e = h->edge;
+	int iteration = 0;
+	HalfedgeRef last_half_edge = t->next->twin;
+
+	// refs to be stored and updated for later iteration use
+	HalfedgeRef prev_t_new;
+	HalfedgeRef prev_h_new;
+	HalfedgeRef prev_ch2;
+	HalfedgeRef prev_t;
+	HalfedgeRef prev_h;
+	HalfedgeRef first_t_new;
+	HalfedgeRef first_t;
+	HalfedgeRef first_ch2;
+	VertexRef first_v_new;
+	uint32_t first_v1_degree = 0;
+
+	HalfedgeRef curr = h;
+	do {
+		//Step 1: make new edges, half edges, and vertices
+		//get vertices on the edge
+		VertexRef v1 = curr->vertex;
+		t = curr->twin;
+		VertexRef v2 = t->vertex;
+		uint32_t v1_degree = v1->degree();
+
+		//make a new vertex
+		VertexRef v_new = emplace_vertex();
+		v_new->position = v1->position;
+		
+		//make 2 new edges
+		EdgeRef e_new = emplace_edge();
+		e_new->sharp = e->sharp; //copy sharpness flag
+		EdgeRef ce_new = emplace_edge();
+		ce_new->sharp = e->sharp; //copy sharpness flag
+
+		//make the 4 half edges
+		HalfedgeRef h_new = emplace_halfedge();
+		HalfedgeRef t_new = emplace_halfedge();
+		HalfedgeRef ch1 = emplace_halfedge();
+		HalfedgeRef ch2 = emplace_halfedge();
+
+		//Step 2: connect them together
+		v_new->halfedge = h_new; //v_new
+		e_new->halfedge = h_new; //e_new
+		ce_new->halfedge = ch1;
+		//h_new
+		h_new->vertex = v_new;
+		//std::cout << "the h_new->vertex in current h of " << curr->id << "is " << h_new->vertex->id << std::endl;
+		h_new->twin = t_new;
+		h_new->edge = e_new; // h_new->next yet to be defined
+		//t_new
+		t_new->twin = h_new;
+		t_new->edge = e_new;// t_new->vertex, t_new->next yet to be defined
+		//ch1
+		ch1->vertex = v1;
+		ch1->twin = ch2;
+		ch1->edge = ce_new;
+		ch1->next = h_new;
+		//ch2
+		ch2->vertex = v_new;
+		ch2->twin = ch1;
+		ch2->edge = ce_new; //ch2->next yet to be defined
+		
+		HalfedgeRef prev_working_edge;
+		HalfedgeRef rightmost_edge;
+		HalfedgeRef top_edge;
+		if (v1_degree > 2) {
+			//search for rightmost boundary edge
+			
+			 //reconnect the surrounding edges to the new edges
+			uint32_t curr_num_degree = v1_degree;
+			HalfedgeRef working_edge = t->next;
+
+			//loop thru the fan to find the one that is boundary
+			rightmost_edge = working_edge;
+			do {
+				rightmost_edge = rightmost_edge->twin->next;
+			} while (!rightmost_edge->face->boundary);
+
+			do {
+				//std::cout << "current working edge is" << working_edge->id << std::endl;
+				if (working_edge->twin->next != curr && working_edge!=curr) {// not on the boundary of the extruded mesh
+					//then reconnect it
+					working_edge->vertex = v_new;
+					// need to define working_edge->twin->next later
+					//figure out if the connection is on the right or top side
+					if (working_edge->twin->next->twin->next == curr) {// dis is right side
+						if (iteration == 0) {
+							prev_working_edge = working_edge;
+						}
+						else {
+							working_edge->twin->next = prev_t_new;
+							/*if (curr == last_half_edge) {
+								std::cout << "it did come here right??? with curr id" << curr->id << std::endl;
+								prev_working_edge->twin->next = first_t_new;
+							}*/
+						}
+					}
+					if (curr->twin->next == working_edge) { // dis is the top side
+						//save this value
+						top_edge = working_edge;
+					}
+				}
+				curr_num_degree--;
+				working_edge = working_edge->twin->next;
+			} while (curr_num_degree > 2);
+		}
+		//t
+		t->next = ch1;
+		if (iteration == 0) {
+			first_t_new = t_new;
+			first_ch2 = ch2;
+			first_v_new = v_new;
+			first_v1_degree = v1_degree;
+			first_t = t;
+		}
+		else {
+			prev_h_new->next = ch2;
+			prev_t_new->vertex = v_new;
+			ch2->next = prev_t;
+			//std::cout << "what is prev t ;-;" << prev_t->id << std::endl;
+			if (prev_h->twin->face->boundary && v1_degree <=2) {
+				t_new->next = prev_t_new; // this is dependent on whether prev_t is a boundary edge
+			}
+			else if (!curr->twin->face->boundary && v1_degree > 2) {
+				t_new->next = top_edge; // need to find the working edge
+			}
+			else {
+				t_new->next = rightmost_edge;
+			}
+			/*std::cout << "t_new is" << t_new->id << std::endl;
+			std::cout << "and its next gets assigned as" << prev_t_new->id << std::endl;*/
+			if (curr == last_half_edge) {
+				/*std::cout << "first v1 degree is " << first_v1_degree << std::endl;
+				std::cout << "prev_t is " << prev_t->id << std::endl;*/
+				if (prev_h->twin->face->boundary && (first_v1_degree <= 2)) {
+				/*	std::cout << "first_t_is " << first_t->id << std::endl;
+					std::cout << "first_ch2 is " << t_new->id << std::endl;*/
+					first_ch2->next = t;
+					first_t_new->next = t_new; // this is dependent on whether prev_t is a boundary edge
+				}
+				h_new->next = first_ch2;
+
+				t_new->vertex = first_v_new;
+				//ch2->next = prev_t_new;
+			}
+		}
+		//update the face of the new t
+		t_new->face = t->face;
+		t_new->face->halfedge = t_new;
+		//update the stuff to save for next iteration
+		prev_t_new = t_new;
+		prev_h_new = h_new;
+		prev_ch2 = ch2;
+		prev_t = t;
+		prev_h = h;
+		curr = curr->next;
+		iteration++;
+		//std::cout << "this is iteration " << iteration << std::endl;
+	} while (curr != h);
+
+	//set the faces for all of them
+	for (int i = 0; i < iteration; i++) {
+		//std::cout << "this is making the " << i << "th face" << std::endl;
+		FaceRef f_new = emplace_face();
+		f_new->halfedge = h->twin;
+		//std::cout << "It still prints stuff here right" << std::endl;
+		update_face(h->twin, f_new);
+		//update_face(h->twin->next->next->twin, outsideFace);
+		h = h->next;
+		//std::cout << "this is making the " << i << "th face" << std::endl;
+	}
+
+    return f;
 }
 
 /*
@@ -613,6 +805,13 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::dissolve_edge(EdgeRef e) {
  */
 std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) {
 	//A2L3: Collapse Edge
+	auto update_face = [&](HalfedgeRef curr_edge, FaceRef target_face) {
+		HalfedgeRef curr = curr_edge;
+		do {
+			curr->face = target_face;
+			curr = curr->next;
+		} while (curr != curr_edge);
+		};
 
 	//Reminder: use interpolate_data() to merge corner_uv / corner_normal data on halfedges
 	// (also works for bone_weights data on vertices!)
@@ -623,6 +822,22 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 		else return false;
 	};
 
+	auto find_rightmost_edge = [&](HalfedgeRef working_edge) {
+		HalfedgeRef rightmost_edge = working_edge;
+		do {
+			rightmost_edge = rightmost_edge->twin->next;
+		} while (!rightmost_edge->face->boundary);
+		return rightmost_edge;
+		};
+
+	auto find_prev_edge = [&](HalfedgeRef working_edge) {
+		HalfedgeRef prev_edge = working_edge;
+		do {
+			prev_edge = prev_edge->next;
+		} while (prev_edge->next != working_edge);
+		return prev_edge;
+		};
+
 	// Phase 1: collect existing elements
 	HalfedgeRef h = e->halfedge;
 	HalfedgeRef t = h->twin;
@@ -630,13 +845,13 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 	VertexRef v2 = t->vertex;
 	FaceRef f1 = h->face;
 	FaceRef f2 = t->face;
-	HalfedgeRef h_one_before = h;
-	while (h_one_before->next != h) {
+	HalfedgeRef h_one_before = find_prev_edge(h);
+	/*do {
 		h_one_before = h_one_before->next;
-	}
+	}while (h_one_before->next != h);*/
 	HalfedgeRef t_next = t->next;
 	HalfedgeRef h_one_after = h->next;
-	HalfedgeRef t_of_h_one_after = h_one_after->next;
+	HalfedgeRef t_of_h_one_after = h_one_after->twin;
 	EdgeRef e_one_after = h_one_after->edge;
 
 	Vec3 v1_new_position = (v1->position + v2->position) / 2.0f;
@@ -644,34 +859,60 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 	uint32_t v2_degree = v2->degree();
 	uint32_t v1_degree = v1->degree();
 
-	////case 0: it is a single triangle: do nothing
-	//if ((face_is_triangle(h) && f2->boundary) || (face_is_triangle(t) && f1->boundary)) {
-	//	if (h->next->face->boundary || t->next->face->boundary) {
-	//		if (h->next->next->face->boundary || t->next->next->face->boundary) {
-	//			std::cout << "it came to reject! " << std::endl;
-	//			return std::nullopt;
-	//		}
-	//	}
-	//}
+	//case 0: it is a single triangle: do nothing
+	//every vertex has degree 2
+	if (face_is_triangle(h)) {
+		HalfedgeRef curr = h;
+		int count = 0;
+		do {
+				uint32_t curr_degree = curr->vertex->degree();
+				if (curr_degree == 2) {
+					count++;
+				}
+				curr = curr->next;
+		} while (curr != h);
+		if (count == 3) {
+			return std::nullopt;
+		}
+	}
 	
+	FaceRef newFace;
+	FaceRef face_underneath;
 	//case 1: one of the faces is a triangle and on the edge: need to delete more stuff
 	if ((f1->boundary || f2->boundary) && (face_is_triangle(h) || face_is_triangle(t))) {
-		std::cout << "it came to the boundary triangle case !!!!!! " << std::endl;
+		
 		HalfedgeRef curr = v2->halfedge;
-		for (uint32_t i = 0; i < v2_degree - 1; ++i) {
-			//whatever is connected with v2 gets reconnected with v1
-			if (curr != t && curr!= t_of_h_one_after) {
-				curr->vertex = v1;
-				v1->halfedge = curr;
-				if (i == 0) { // check the first one
+		//std::cout << "v2 degree is " <<v2_degree<< std::endl;
+		HalfedgeRef rightmost_edge = t->next;
+		//check if there is a face beneath it
+		if (v2_degree > 2) {
+			HalfedgeRef last_h_in_neighbor = h_one_after->twin;
+			face_underneath = h_one_after->twin->face;
+			do {
+				last_h_in_neighbor = last_h_in_neighbor->next;
+			} while (last_h_in_neighbor->next != h_one_after->twin);
+			for (uint32_t i = 0; i < v2_degree - 1; ++i) {
+				//whatever is connected with v2 gets reconnected with v1
+				if (curr != t && curr != h_one_after) {
+					/*std::cout << "curr id is " << curr->id << std::endl;
+					std::cout << "the curr twin vertex id is " << curr->twin->vertex->id << std::endl;*/
+					curr->vertex = v1;
+					
+					//std::cout << "v1 halfedge now set to " << curr->id << std::endl;
+					
 					h_one_before->next = curr;
-				}
-				else if (i == v2_degree - 2) { // check the last one
+					
 					curr->twin->next = t_next;
+					
 				}
+				curr = curr->twin->next;
 			}
-			curr = curr->twin->next;
+			//std::cout << "t->next id" << t_next->id << std::endl;
+			last_h_in_neighbor->next = h_one_before;
+			//std::cout << "last h in neighbor id " << last_h_in_neighbor->id << std::endl;
+			//std::cout << "h_one_before " << h_one_before->id << std::endl;
 		}
+		// if there isn't a face underneath, still delete the two edges of the triangle
 		//erase the edge
 		erase_edge(e);
 		erase_halfedge(h);
@@ -681,17 +922,36 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 		erase_edge(e_one_after);
 		erase_halfedge(h_one_after);
 		erase_halfedge(t_of_h_one_after);
+		//erase out the face as well
+		erase_face(f1);
+		//new position
 		v1->position = v1_new_position;
+		//other linkages
+		h_one_after->next->vertex->halfedge = h_one_before;
+		f2->halfedge = rightmost_edge;
+		//update face
+		if (v2_degree > 2) {
+			h_one_before->face = face_underneath;
+		}
+		else {
+			update_face(h_one_before, f2);
+		}
+		v1->halfedge = h_one_before->twin;
+		
 		return v1;
 	}
 
 	//case 2: both faces of the given edge not a triangle 
 	if (!face_is_triangle(h) && !face_is_triangle(t)) {
-		std::cout << "it came to the non triangle case! " << std::endl;
 		if ((v2_degree <= 3) && (v1_degree <= 3)) { // case 3: hourglass shape, non manifold
+		/*	unint32_t check1 = h->next->next->twin->face->id;
+			unint32_t check2 = t->next->next->twin->face->id;*/
 			if ((h->next->next->twin->face->boundary) && (t->next->next->twin->face->boundary)) {
 				return std::nullopt;
 			}
+			/*if (check1 == check2) {
+				return std::nullopt;
+			}*/
 		}
 		//uint32_t v2_degree = v2->degree();
 		HalfedgeRef curr = v2->halfedge;
@@ -808,6 +1068,56 @@ void Halfedge_Mesh::extrude_positions(FaceRef face, Vec3 move, float shrink) {
 	// use mesh navigation to get starting positions from the surrounding faces,
 	// compute the centroid from these positions + use to shrink,
 	// offset by move
-	
+
+	 // calculate the centroid of the face
+	Vec3 centroid(0.0f, 0.0f, 0.0f);
+	HalfedgeRef h = face->halfedge;
+	HalfedgeRef curr = h;
+	int num_vertices = 0;
+	HalfedgeRef revolving_edge = h;
+
+	do {
+		centroid += curr->vertex->position;
+		num_vertices++;
+		curr = curr->next;
+	} while (curr != h);
+
+	centroid /= static_cast<float>(num_vertices);
+
+	//move each vertex based on shrink factor and move offset
+	if (shrink >= 0) {
+		curr = h;
+		do {
+			Vec3& pos = curr->vertex->position;
+
+			if (shrink != 0) {
+				// shrink towards or away from the centroid
+				pos = centroid + shrink * (pos - centroid);
+			}
+			//std::cout << "the current shrink is: " << shrink << std::endl;
+			// apply move offset
+			pos += move;
+
+			curr = curr->next;
+		} while (curr != revolving_edge);
+
+	}
+	else {
+		curr = h; 
+		do {
+			//std::cout << "ever came here?? the shrink is negative: "<< shrink << std::endl;
+			//Vec3& pos = curr->twin->next->next->vertex->position;
+			Vec3& pos = curr->vertex->position;
+
+			// negative case
+			pos = centroid + (1 - shrink) * (pos - centroid);
+
+			pos += move;
+
+			curr = curr->next;
+		} while (curr != h);
+	}
+
+
 }
 

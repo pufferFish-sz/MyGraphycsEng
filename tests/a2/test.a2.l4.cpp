@@ -2,8 +2,10 @@
 #include "geometry/halfedge.h"
 
 #include <set>
+#include <iostream>
 
 static void expect_extrude(Halfedge_Mesh &mesh, Halfedge_Mesh::FaceRef face, Vec3 move, float shrink, Halfedge_Mesh const &after) {
+	//std::cout << "Initial mesh state:\n" << mesh.describe() << "\n";
 	size_t numVerts = mesh.vertices.size();
 	size_t numEdges = mesh.edges.size();
 	size_t numFaces = mesh.faces.size();
@@ -24,6 +26,7 @@ static void expect_extrude(Halfedge_Mesh &mesh, Halfedge_Mesh::FaceRef face, Vec
 	}
 
 	if (auto ret = mesh.extrude_face(face)) {
+		//std::cout << "Mesh state after split_edge:\n" << mesh.describe() << "\n";
 		if (auto msg = mesh.validate()) {
 			throw Test::error("Invalid mesh: " + msg.value().second);
 		}
@@ -76,6 +79,7 @@ static void expect_extrude(Halfedge_Mesh &mesh, Halfedge_Mesh::FaceRef face, Vec
 		}
 
 		mesh.extrude_positions(face, move, shrink);
+		//std::cout << "Mesh state after split_edge:\n" << mesh.describe() << "\n";
 		// check mesh shape:
 		if (auto difference = Test::differs(mesh, after, Test::CheckAllBits)) {
 			throw Test::error("Resulting mesh did not match expected: " + *difference);

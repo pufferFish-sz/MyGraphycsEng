@@ -3,9 +3,9 @@
 #include <iostream>
 
 static void expect_collapse(Halfedge_Mesh &mesh, Halfedge_Mesh::EdgeRef edge, Halfedge_Mesh const &after) {
-	std::cout << "Initial mesh state:\n" << mesh.describe() << "\n";
+	//std::cout << "Initial mesh state:\n" << mesh.describe() << "\n";
 	if (auto ret = mesh.collapse_edge(edge)) {
-		std::cout << "Mesh state after split_edge:\n" << mesh.describe() << "\n";
+		//std::cout << "Mesh state after split_edge:\n" << mesh.describe() << "\n";
 		if (auto msg = mesh.validate()) {
 			throw Test::error("Invalid mesh: " + msg.value().second);
 		}
@@ -150,3 +150,38 @@ Test test_a2_l3_collapse_edge_triangle("a2.l3.collapse_edge.triangle", []() {
 	}
 	});
 
+
+/*
+Edge CASE
+
+Initial mesh:
+0--1--2
+|  |  |
+|  |  |
+3--4--5
+
+Edge Collapse on Edge: 1-4
+
+After mesh:
+0--1--2
+|  |  |
+|  |  |
+3--4--5
+
+(reject)
+*/
+Test test_a2_l3_collapse_edge_square("a2.l3.collapse_edge.square", []() {
+	Halfedge_Mesh mesh = Halfedge_Mesh::from_indexed_faces({
+	Vec3(0.0f, 0.0f, 0.0f), Vec3(2.0f, 0.0f, 0.0f),Vec3(4.0f, 0.0f, 0.0f),
+	Vec3(0.0f, 4.0f, 0.0f), Vec3(2.0f, 4.0f, 0.0f), Vec3(4.0f, 4.0f, 0.0f)
+		}, {
+		{0, 1, 4, 3},
+		{1, 2, 5, 4}
+		});
+	// std::cout
+	Halfedge_Mesh::EdgeRef edge = mesh.halfedges.begin()->next->edge;
+
+	if (mesh.collapse_edge(edge)) {
+		throw Test::error("collapse_edge should not work creates non manifold mesh - square case.");
+	}
+	});

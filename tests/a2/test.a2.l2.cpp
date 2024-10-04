@@ -3,9 +3,9 @@
 #include <iostream>
 
 static void expect_split(Halfedge_Mesh &mesh, Halfedge_Mesh::EdgeRef edge, Halfedge_Mesh const &after) {
-	std::cout << "Initial mesh state:\n" << mesh.describe() << "\n";
+	//std::cout << "Initial mesh state:\n" << mesh.describe() << "\n";
 	if (auto ret = mesh.split_edge(edge)) {
-		std::cout << "Mesh state after split_edge:\n" << mesh.describe() << "\n";
+		//std::cout << "Mesh state after split_edge:\n" << mesh.describe() << "\n";
 		if (auto msg = mesh.validate()) {
 			throw Test::error("Invalid mesh: " + msg.value().second);
 		}
@@ -104,4 +104,47 @@ Test test_a2_l2_split_edge_edge_boundary("a2.l2.split_edge.edge.boundary", []() 
 
 	expect_split(mesh, edge, after);
 });
+
+/*
+Edge CASE
+
+Initial mesh:
+0--1
+|  |
+|  |
+|  |
+|  |
+|  |
+2--3
+
+Split Edge on Edge: 1-3
+
+After mesh:
+0--1
+|\ |
+| \|
+|  4
+|  |
+|  |
+2--3
+*/
+Test test_a2_l2_split_edge_edge_square("a2.l2.split_edge.square", []() {
+	Halfedge_Mesh mesh = Halfedge_Mesh::from_indexed_faces({
+	 Vec3(0.0f, 0.0f, 0.0f), Vec3(2.0f, 0.0f, 0.0f),
+	 Vec3(0.0f, 4.0f, 0.0f), Vec3(2.0f, 4.0f, 0.0f)
+		}, {
+		 {0, 2,3,1}
+		});
+	Halfedge_Mesh::EdgeRef edge = mesh.halfedges.begin()->next->next->edge;
+
+	Halfedge_Mesh after = Halfedge_Mesh::from_indexed_faces({
+	 Vec3(0.0f, 0.0f, 0.0f), Vec3(2.0f, 0.0f, 0.0f),
+	 Vec3(0.0f, 4.0f, 0.0f), Vec3(2.0f, 4.0f, 0.0f), Vec3(2.0f, 2.0f, 0.0f)
+		}, {
+		 {0, 4,1},
+		 {0,2,3,4}
+		});
+
+	expect_split(mesh, edge, after);
+	});
 
