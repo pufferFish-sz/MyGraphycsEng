@@ -221,6 +221,19 @@ void Halfedge_Mesh::catmark_subdivide() {
 
 	//Overview of the rules:
 	// https://en.wikipedia.org/wiki/Catmull%E2%80%93Clark_subdivision_surface
+	auto getSum = [&](VertexRef v, Vec3& surroundingFaces, Vec3& surroundingEdges) {
+		HalfedgeRef h = v->halfedge;
+		HalfedgeRef working_h = h;
+		uint32_t count = 0;
+		do {
+			count++;
+			surroundingEdges += working_h->edge->center();
+			surroundingFaces += working_h->face->center();
+			working_h = working_h->twin->next;
+		} while (h != working_h);
+
+		return count;
+		};
 
 	// Faces
 	for (FaceRef f = faces.begin(); f != faces.end(); ++f) {
@@ -231,12 +244,36 @@ void Halfedge_Mesh::catmark_subdivide() {
 
 	// Edges
 	for (EdgeRef e = edges.begin(); e != edges.end(); ++e) {
-		edge_vertex_positions[e] = e->center();
+		if (e->on_boundary()) {
+			edge_vertex_positions[e] = e->center();
+		}
+		else {
+			FaceRef leftFace = e->halfedge->face;
+			FaceRef rightFace = e->halfedge->twin->face;
+			edge_vertex_positions[e] = (e->center()) / 2 + (leftFace->center() + rightFace->center()) / 4;
+		}
 	}
-
+	
 	// Vertices
 	for (VertexRef v = vertices.begin(); v != vertices.end(); ++v) {
-		vertex_positions[v] = v->position;
+		if (v->on_boundary()) { // boundary case
+			Vec3 a = v->halfedge->twin->next->next->vertex->position;
+			Vec3 b = v->position;
+			Vec3 c = v->halfedge->next->vertex->position;
+
+			vertex_positions[v] = 0.125 * a + 0.125 * c + 0.75 * b;
+		}
+		else {
+			Vec3 surroundingFaces(0.0f, 0.0f, 0.0f);
+			Vec3 surroundingEdges(0.0f, 0.0f, 0.0f);
+			float n = float(v->degree());
+			//neighbor face vertices average
+			float total = float(getSum(v, surroundingFaces, surroundingEdges));
+			Vec3 Q = surroundingFaces / total;
+			//neighbor edges average
+			Vec3 R = surroundingEdges / total;
+			vertex_positions[v] = (Q + 2 * R + (n - 3) * v->position) / n;
+		}
 	}
 	
 	//Now, use the provided helper function to actually perform the subdivision:

@@ -2,12 +2,13 @@
 #include "geometry/halfedge.h"
 
 #include <set>
+#include <iostream>
 
 static void expect_cc(Halfedge_Mesh& mesh, Halfedge_Mesh const &after) {
 	size_t numVerts = mesh.vertices.size();
 	size_t numEdges = mesh.edges.size();
 	size_t numFaces = mesh.faces.size();
-
+	std::cout << "Initial mesh state:\n" << mesh.describe() << "\n";
 	// count the number of new edges to be generated after catmull-clark subdiv
 	// count the number of quad faces to be generated after catmull-clark subdiv
 	size_t ce = 0;
@@ -20,7 +21,7 @@ static void expect_cc(Halfedge_Mesh& mesh, Halfedge_Mesh const &after) {
 	}
 
 	mesh.catmark_subdivide();
-
+	std::cout << "Mesh state after split_edge:\n" << mesh.describe() << "\n";
 	if (auto msg = mesh.validate()) {
 		throw Test::error("Invalid mesh: " + msg.value().second);
 	}
