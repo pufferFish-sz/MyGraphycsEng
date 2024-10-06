@@ -1072,30 +1072,27 @@ void Halfedge_Mesh::extrude_positions(FaceRef face, Vec3 move, float shrink) {
 	Vec3 centroid_pos(0.0f, 0.0f, 0.0f);
 	HalfedgeRef h = face->halfedge;
 	HalfedgeRef curr = h;
-	int num_vertices = 0;
+	//int num_vertices = 0;
 	HalfedgeRef revolving_edge = h;
 
 	// Collect all vertices around the face into a vector
-	//std::vector<VertexCRef> face_vertices;
+	std::vector<VertexCRef> face_vertices;
 
 	do {
-		centroid_pos += curr->vertex->position;
-		//face_vertices.push_back(curr->vertex);  // Store each vertex
-		num_vertices++;
+		face_vertices.push_back(curr->vertex);  // Store each vertex
 		curr = curr->next;
 	} while (curr != h);
 
-	centroid_pos /= static_cast<float>(num_vertices);
+	centroid_pos = face->center();
 
-	//VertexRef temp_centroid = h->vertex; 
-	//temp_centroid->position = centroid_pos;
-	//interpolate_data(face_vertices, temp_centroid);
+	VertexRef temp_centroid = emplace_vertex(); 
+	temp_centroid->position = centroid_pos;
+	interpolate_data(face_vertices, temp_centroid);
 	
-
 	curr = h;
 	do {
 		Vec3& pos = curr->vertex->position;
-		//VertexRef old_vertex = curr->vertex;
+		VertexRef old_vertex = curr->vertex;
 
 		if (shrink > 0) {
 			// shrink towards or away from the centroid
@@ -1110,10 +1107,12 @@ void Halfedge_Mesh::extrude_positions(FaceRef face, Vec3 move, float shrink) {
 
 		VertexRef new_vertex = curr->vertex;
 
-		//interpolate_data({temp_centroid, old_vertex}, new_vertex);
+		interpolate_data({temp_centroid, old_vertex}, new_vertex);
 
 		curr = curr->next;
 	} while (curr != revolving_edge);
+
+	erase_vertex(temp_centroid);
 
 }
 

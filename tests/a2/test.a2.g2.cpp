@@ -121,3 +121,41 @@ Test test_s2_g2_linear_basic_quad_cube("a2.g2.linear.basic.quad_cube", []() {
 
 	expect_linear(mesh, after);
 });
+
+/*
+Edge CASE
+
+Linear subdivides a hexagon
+*/
+Test test_a2_g2_linear_basic_hexagon("a2.g2.linear.basic.hexagon", []() {
+	Halfedge_Mesh mesh = Halfedge_Mesh::from_indexed_faces({
+	  Vec3{-1.0f, 0.0f, 1.0f}, Vec3{ 1.0f, 0.0f, 1.0f},
+	 Vec3{-2.0f, 0.0f, 0.0f},   Vec3{ 2.0f, 0.0f, 0.0f},
+	  Vec3{-1.0f, 0.0f,-1.0f}, Vec3{ 1.0f, 0.0f,-1.0f}
+		}, {
+		 {0, 2, 4, 5, 3, 1}
+		});
+
+	Halfedge_Mesh after = Halfedge_Mesh::from_indexed_faces({
+		// Vertices
+   Vec3{-1.0f, 0.0f, 1.0f}, Vec3{ 1.0f, 0.0f, 1.0f}, // 0-1
+  Vec3{-2.0f, 0.0f, 0.0f},   Vec3{ 2.0f, 0.0f, 0.0f}, // 2-3
+   Vec3{-1.0f, 0.0f,-1.0f}, Vec3{ 1.0f, 0.0f,-1.0f}, //4-5
+
+   // Edge Vertices
+  Vec3{ 0.0f, 0.0f, 1.0f}, // 6
+Vec3{-1.5f, 0.0f, 0.5f}, Vec3{ 1.5f, 0.0f, 0.5f}, // 7-8
+   Vec3{ 0.0f, 0.0f, 0.0f}, // 9
+Vec3{-1.5f, 0.0f,-0.5f}, Vec3{ 1.5f, 0.0f,-0.5f}, // 10-11
+   Vec3{ 0.0f, 0.0f,-1.0f} // 12
+		}, {
+		 {6, 0, 7, 9},
+		 {7, 2, 10, 9},
+		 {8, 1, 6, 9},
+		 {10, 4, 12, 9},
+		 {11, 3, 8, 9},
+		 {12, 5, 11, 9}
+		});
+
+	expect_linear(mesh, after);
+	});

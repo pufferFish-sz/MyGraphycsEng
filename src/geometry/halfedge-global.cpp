@@ -158,10 +158,7 @@ void Halfedge_Mesh::triangulate() {
 			create_triangle(triangle_vertices,secondHalfedge,i,f);
 
 		}
-
-		// After triangulating the face, remove the original face
 	}
-	
 }
 
 /*
@@ -179,19 +176,25 @@ void Halfedge_Mesh::linear_subdivide() {
 	//A2G2: linear subdivision
 
 	// For every vertex, assign its current position to vertex_positions[v]:
-
-	//(TODO)
+	for (VertexRef v = vertices.begin(); v != vertices.end(); ++v) {
+		vertex_positions[v] = v->position;
+	}
 
     // For every edge, assign the midpoint of its adjacent vertices to edge_vertex_positions[e]:
 	// (you may wish to investigate the helper functions of Halfedge_Mesh::Edge)
 
-	//(TODO)
+	for (EdgeRef e = edges.begin(); e != edges.end(); ++e) {
+		edge_vertex_positions[e] = e->center();
+	}
 
     // For every *non-boundary* face, assign the centroid (i.e., arithmetic mean) to face_vertex_positions[f]:
 	// (you may wish to investigate the helper functions of Halfedge_Mesh::Face)
 
-	//(TODO)
-
+	for (FaceRef f = faces.begin(); f != faces.end(); ++f) {
+		if (!f->boundary) {
+			face_vertex_positions[f] = f->center();
+		}
+	}
 
 	//use the helper function to actually perform the subdivision:
 	catmark_subdivide_helper(vertex_positions, edge_vertex_positions, face_vertex_positions);
@@ -220,11 +223,21 @@ void Halfedge_Mesh::catmark_subdivide() {
 	// https://en.wikipedia.org/wiki/Catmull%E2%80%93Clark_subdivision_surface
 
 	// Faces
+	for (FaceRef f = faces.begin(); f != faces.end(); ++f) {
+		if (!f->boundary) {
+			face_vertex_positions[f] = f->center();
+		}
+	}
 
 	// Edges
+	for (EdgeRef e = edges.begin(); e != edges.end(); ++e) {
+		edge_vertex_positions[e] = e->center();
+	}
 
 	// Vertices
-
+	for (VertexRef v = vertices.begin(); v != vertices.end(); ++v) {
+		vertex_positions[v] = v->position;
+	}
 	
 	//Now, use the provided helper function to actually perform the subdivision:
 	catmark_subdivide_helper(vertex_positions, edge_vertex_positions, face_vertex_positions);
