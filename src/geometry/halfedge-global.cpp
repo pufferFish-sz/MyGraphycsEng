@@ -13,6 +13,154 @@
  */
 void Halfedge_Mesh::triangulate() {
 	//A2G1: triangulation
+
+	auto update_face = [&](HalfedgeRef curr_edge, FaceRef target_face) {
+		HalfedgeRef curr = curr_edge;
+		do {
+			curr->face = target_face;
+			curr = curr->next;
+		} while (curr != curr_edge);
+		};
+
+	auto edge_exists = [&](VertexRef v1, VertexRef v2)  -> std::optional<HalfedgeRef> {
+		// Iterate over all the outgoing halfedges from vertex v1
+		// Check all outgoing halfedges from v1 to see if any point to v2
+		HalfedgeRef h = v1->halfedge;
+		do {
+			if (h->twin->vertex == v2) {
+				return h;
+			}
+			h = h->twin->next;
+		} while (h != v1->halfedge);
+
+		// Also check for the reverse edge (from v2 to v1)
+		h = v2->halfedge;
+		do {
+			if (h->twin->vertex == v1) {
+				return h->twin;
+			}
+			h = h->twin->next;
+		} while (h != v2->halfedge);
+
+		return std::nullopt;
+		};
+
+	auto make_edge = [&](VertexRef v1, VertexRef v2) {
+		// Iterate over all the outgoing halfedges from vertex v1
+		//emplace
+		EdgeRef e_new = emplace_edge();
+		HalfedgeRef h_new = emplace_halfedge();
+		HalfedgeRef t_new = emplace_halfedge();
+
+		//assign new stuff
+		e_new->halfedge = h_new;
+		h_new->twin = t_new;
+		h_new->vertex = v1; // h_new -> next yet to be assigned
+		h_new->edge = e_new;
+		t_new->twin = h_new; //t_new->next will be assigned in the following iteration
+		t_new->edge = e_new;
+		t_new->vertex = v2;
+
+		return h_new;
+		};
+
+	auto create_triangle = [&](const std::vector<VertexRef>& vertices, HalfedgeRef second_halfedge, int i, FaceRef originalFace) {
+		// get compoenents 
+		VertexRef v0 = vertices[0];
+		VertexRef v1 = vertices[1];
+		VertexRef v2 = vertices[2];
+
+		std::optional<HalfedgeRef> first_halfedge;
+		std::optional<HalfedgeRef> third_halfedge;
+		FaceRef workingFace;
+		// - Create a new face (triangle)
+		if (i == 0) { // the first iteration - always use the original face
+			workingFace = originalFace;
+		}
+		else {
+			FaceRef f_new = emplace_face();
+			workingFace = f_new;
+		}
+
+		first_halfedge = edge_exists(v0, v1);
+		if (!first_halfedge.has_value()) {
+			//std::cout << "it's making the first edge" << std::endl;
+			
+			first_halfedge = make_edge(v0,v1);
+		}
+		
+		first_halfedge.value()->next = second_halfedge;
+
+		third_halfedge = edge_exists(v2, v0);
+		if (!third_halfedge.has_value()) {
+			//std::cout << "it's making the third edge" << std::endl;
+			
+			//save the first halfedge info
+			third_halfedge = make_edge(v2,v0);
+		}
+		second_halfedge->next = third_halfedge.value();
+
+		third_halfedge.value()->next = first_halfedge.value();
+
+		workingFace->halfedge = second_halfedge;
+		update_face(first_halfedge.value(), workingFace);
+
+		};
+	// loop through all faces in the mesh
+
+	// copy the original faces
+	std::vector<FaceRef> original_faces;
+	for (FaceRef f = faces.begin(); f != faces.end(); ++f) {
+		original_faces.push_back(f);
+	}
+
+	int faceCount = 0;
+	//std::vector<FaceRef> faces_to_erase;
+	for (FaceRef f : original_faces) {
+		faceCount++;
+	
+		// Skip boundary faces and faces that are already triangles
+		if (f->boundary || f->degree() == 3) {
+			continue;
+		}
+
+		std::vector<HalfedgeRef> original_halfedges;
+		std::vector<VertexRef> original_vertices;
+	
+		// the first vertex in the face
+		HalfedgeRef h = f->halfedge;
+		VertexRef v0 = h->vertex;
+
+		// Loop through the remaining vertices and create triangles
+		HalfedgeRef h1 = h->next;
+		HalfedgeRef h2 = h1->next;
+
+		while (h2 != h) {
+			original_halfedges.push_back(h1);
+			//std::cout << "h1 pushed in is " << h1->id << std::endl;
+			original_vertices.push_back(h1->vertex);
+			//std::cout << "vertex pushed in is " << h1->vertex->id << std::endl;
+			if (h2->next == h) {
+				original_vertices.push_back(h2->vertex);
+				//std::cout << "vertex pushed in is " << h2->vertex->id << std::endl;
+			}
+			h1 = h2;
+			h2 = h2->next;
+		}
+
+		for (int i = 0; i < original_halfedges.size(); i ++) {
+			VertexRef v1 = original_vertices[i];
+			VertexRef v2 = original_vertices[i + 1];
+
+			std::vector<VertexRef> triangle_vertices = { v0, v1, v2 };
+			HalfedgeRef secondHalfedge = original_halfedges[i];
+
+			create_triangle(triangle_vertices,secondHalfedge,i,f);
+
+		}
+
+		// After triangulating the face, remove the original face
+	}
 	
 }
 

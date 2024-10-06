@@ -605,7 +605,6 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::extrude_face(FaceRef f) {
 			prev_h_new->next = ch2;
 			prev_t_new->vertex = v_new;
 			ch2->next = prev_t;
-			//std::cout << "what is prev t ;-;" << prev_t->id << std::endl;
 			if (prev_h->twin->face->boundary && v1_degree <=2) {
 				t_new->next = prev_t_new; // this is dependent on whether prev_t is a boundary edge
 			}
@@ -1070,54 +1069,51 @@ void Halfedge_Mesh::extrude_positions(FaceRef face, Vec3 move, float shrink) {
 	// offset by move
 
 	 // calculate the centroid of the face
-	Vec3 centroid(0.0f, 0.0f, 0.0f);
+	Vec3 centroid_pos(0.0f, 0.0f, 0.0f);
 	HalfedgeRef h = face->halfedge;
 	HalfedgeRef curr = h;
 	int num_vertices = 0;
 	HalfedgeRef revolving_edge = h;
 
+	// Collect all vertices around the face into a vector
+	//std::vector<VertexCRef> face_vertices;
+
 	do {
-		centroid += curr->vertex->position;
+		centroid_pos += curr->vertex->position;
+		//face_vertices.push_back(curr->vertex);  // Store each vertex
 		num_vertices++;
 		curr = curr->next;
 	} while (curr != h);
 
-	centroid /= static_cast<float>(num_vertices);
+	centroid_pos /= static_cast<float>(num_vertices);
 
-	//move each vertex based on shrink factor and move offset
-	if (shrink >= 0) {
-		curr = h;
-		do {
-			Vec3& pos = curr->vertex->position;
+	//VertexRef temp_centroid = h->vertex; 
+	//temp_centroid->position = centroid_pos;
+	//interpolate_data(face_vertices, temp_centroid);
+	
 
-			if (shrink != 0) {
-				// shrink towards or away from the centroid
-				pos = centroid + shrink * (pos - centroid);
-			}
-			//std::cout << "the current shrink is: " << shrink << std::endl;
-			// apply move offset
-			pos += move;
+	curr = h;
+	do {
+		Vec3& pos = curr->vertex->position;
+		//VertexRef old_vertex = curr->vertex;
 
-			curr = curr->next;
-		} while (curr != revolving_edge);
+		if (shrink > 0) {
+			// shrink towards or away from the centroid
+			pos = centroid_pos + shrink * (pos - centroid_pos);
+		}
+		else if (shrink < 0) {
+			pos = centroid_pos + (1 - shrink) * (pos - centroid_pos);
+		}
 
-	}
-	else {
-		curr = h; 
-		do {
-			//std::cout << "ever came here?? the shrink is negative: "<< shrink << std::endl;
-			//Vec3& pos = curr->twin->next->next->vertex->position;
-			Vec3& pos = curr->vertex->position;
+		// apply move offset
+		pos += move;
 
-			// negative case
-			pos = centroid + (1 - shrink) * (pos - centroid);
+		VertexRef new_vertex = curr->vertex;
 
-			pos += move;
+		//interpolate_data({temp_centroid, old_vertex}, new_vertex);
 
-			curr = curr->next;
-		} while (curr != h);
-	}
-
+		curr = curr->next;
+	} while (curr != revolving_edge);
 
 }
 

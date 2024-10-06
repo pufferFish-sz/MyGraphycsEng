@@ -3,11 +3,12 @@
 
 #include <map>
 #include <set>
+#include <iostream>
 
 static void expect_triangulate(Halfedge_Mesh& mesh) {
 	size_t numEdges = mesh.edges.size();
 	size_t numFaces = mesh.faces.size();
-
+	//std::cout << "Initial mesh state:\n" << mesh.describe() << "\n";
 	// count the number of triangle edges/faces to be generated after triangulation
 	size_t c = 0;
 	for (Halfedge_Mesh::FaceRef f = mesh.faces.begin(); f != mesh.faces.end(); f++) {
@@ -31,6 +32,7 @@ static void expect_triangulate(Halfedge_Mesh& mesh) {
 	//TODO: shape of boundary faces should be preserved
 
 	mesh.triangulate();
+	//std::cout << "Mesh state after split_edge:\n" << mesh.describe() << "\n";
 
 	if (auto msg = mesh.validate()) {
 		throw Test::error("Invalid mesh: " + msg.value().second);
@@ -122,3 +124,22 @@ Test test_a2_g1_triangulate_basic_quad_cube("a2.g1.triangulate.basic.quad_cube",
 	// Many different implementations of triangulating, so just checks that all the faces are triangles and some other misc things
 	expect_triangulate(mesh);
 });
+
+/*
+BASIC CASE
+
+Triangulates an octagon
+*/
+Test test_a2_g1_triangulate_basic_octagon("a2.g1.triangulate.basic.octagon", []() {
+	Halfedge_Mesh mesh = Halfedge_Mesh::from_indexed_faces({
+  Vec3{-0.5f, 0.0f,-0.5f}, Vec3{-0.5f, 0.0f, 0.5f},
+  Vec3{ 0.5f, 0.0f,-0.5f}, Vec3{ 0.5f, 0.0f, 0.5f},
+  Vec3{ 0.0f, 0.0f, 1.0f}, Vec3{ 0.0f, 0.0f, -1.0f},
+  Vec3{-0.5f, 0.0f, 0.0f}, Vec3{ 0.5f, 0.0f, 0.0f},
+		}, {
+		 {4, 3, 7, 2, 5, 0, 6, 1}
+		});
+
+	// Many different implementations of triangulating, so just checks that all the faces are triangles and some other misc things
+	expect_triangulate(mesh);
+	});
