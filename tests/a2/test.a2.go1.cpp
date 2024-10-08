@@ -6,7 +6,7 @@
 #include <iostream>
 
 static void expect_loop(Halfedge_Mesh& mesh, Halfedge_Mesh const &after) {
-	//std::cout << "Initial mesh state:\n" << mesh.describe() << "\n";
+	std::cout << "Initial mesh state:\n" << mesh.describe() << "\n";
 	size_t numVerts = mesh.vertices.size();
 	size_t numEdges = mesh.edges.size();
 	size_t numFaces = mesh.faces.size();
@@ -17,7 +17,7 @@ static void expect_loop(Halfedge_Mesh& mesh, Halfedge_Mesh const &after) {
         }
     }
 	if (mesh.loop_subdivide()) {
-		std::cout << "Mesh state after split_edge:\n" << mesh.describe() << "\n";
+		std::cout << "Mesh state after loop_subdivide:\n" << mesh.describe() << "\n";
 		if (auto msg = mesh.validate()) {
 			throw Test::error("Invalid mesh: " + msg.value().second);
 		}
