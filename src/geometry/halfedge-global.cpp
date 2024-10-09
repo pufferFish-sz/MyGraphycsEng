@@ -148,7 +148,7 @@ void Halfedge_Mesh::triangulate() {
 			h2 = h2->next;
 		}
 
-		for (int i = 0; i < original_halfedges.size(); i ++) {
+		for (int i = 0; i < int(original_halfedges.size()); i ++) {
 			VertexRef v1 = original_vertices[i];
 			VertexRef v2 = original_vertices[i + 1];
 
@@ -414,10 +414,10 @@ bool Halfedge_Mesh::loop_subdivide() {
 		EdgeRef nextEdge = e;
 		nextEdge++;
 
-		HalfedgeRef ori_h = originalHalfedgeCopy[i];
-		HalfedgeRef ori_t = originalHalfedgeTwinCopy[i];
+		//HalfedgeRef ori_h = originalHalfedgeCopy[i];
+		//HalfedgeRef ori_t = originalHalfedgeTwinCopy[i];
 		HalfedgeRef curr_h = e->halfedge;
-		HalfedgeRef curr_t = curr_h->twin;
+		//HalfedgeRef curr_t = curr_h->twin;
 
 		// split the edge
 		VertexRef vm;
