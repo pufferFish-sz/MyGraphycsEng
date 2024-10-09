@@ -373,8 +373,8 @@ bool Halfedge_Mesh::loop_subdivide() {
 	}
 
 	std::vector<EdgeRef> originalEdgeCopy;
-	std::vector<HalfedgeRef> originalHalfedgeCopy;
-	std::vector<HalfedgeRef> originalHalfedgeTwinCopy;
+	/*std::vector<HalfedgeRef> originalHalfedgeCopy;
+	std::vector<HalfedgeRef> originalHalfedgeTwinCopy;*/
 	// Next, compute the subdivided vertex positions associated with edges, and
 	// store them in edge_new_pos:
 	std::unordered_map< EdgeRef, Vec3 > edge_new_pos;
@@ -385,8 +385,6 @@ bool Halfedge_Mesh::loop_subdivide() {
 			edge_new_pos[e] = e->center();
 		}
 		else {
-			/*HalfedgeRef h = e->halfedge;
-			HalfedgeRef t = h->twin;*/
 			Vec3 A = h->vertex->position;
 			Vec3 B = t->vertex->position;
 			Vec3 C = h->next->next->vertex->position;
@@ -395,8 +393,6 @@ bool Halfedge_Mesh::loop_subdivide() {
 			edge_new_pos[e] = 0.375f * (A + B) + 0.125f * (C + D);
 		}
 		originalEdgeCopy.push_back(e);
-		originalHalfedgeCopy.push_back(h);
-		originalHalfedgeTwinCopy.push_back(t);
 	}
     
 	// Next, we're going to split every edge in the mesh, in any order, placing
@@ -413,11 +409,6 @@ bool Halfedge_Mesh::loop_subdivide() {
 		// get the next edge NOW!
 		EdgeRef nextEdge = e;
 		nextEdge++;
-
-		//HalfedgeRef ori_h = originalHalfedgeCopy[i];
-		//HalfedgeRef ori_t = originalHalfedgeTwinCopy[i];
-		HalfedgeRef curr_h = e->halfedge;
-		//HalfedgeRef curr_t = curr_h->twin;
 
 		// split the edge
 		VertexRef vm;
