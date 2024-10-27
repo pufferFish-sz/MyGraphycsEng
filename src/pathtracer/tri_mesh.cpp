@@ -32,15 +32,48 @@ Trace Triangle::hit(const Ray& ray) const {
 
     // TODO (PathTracer): Task 2
     // Intersect the ray with the triangle defined by the three vertices.
+	Vec3 p0 = v_0.position;
+	Vec3 p1 = v_1.position;
+	Vec3 p2 = v_2.position;
 
-    Trace ret;
+	Vec3 s = ray.point - p0;
+	Vec3 e1 = p1 - p0;
+	Vec3 e2 = p2 - p0;
+
+	Trace ret;
+	float denominator = dot(cross(e1, ray.dir), e2);
+	if (denominator == 0.0f) {
+		ret.hit = false;
+		return ret; // ray is coplanar, doesn't intersect
+	}
+	Vec3 right_side = Vec3(dot(- cross(s, e2), ray.dir),
+							dot(cross(e1, ray.dir), s),
+							dot(- cross(s, e2), e1));
+
+	Vec3 res = 1.0f / denominator * right_side;
+	float u = res.x;
+	float v = res.y;
+	float t = res.z;
+
+	// check if intersection point is inside the triangle
+	if (u < 0.0f || u > 1.0f || v < 0.0f || v > 1.0f || (u + v) > 1.0f) {
+		ret.hit = false;
+		return ret;
+	}
+
+	// check if intersection is in front of the ray origin
+	if (t <= 0.0f) {
+		ret.hit = false;
+		return ret;
+	}
+
     ret.origin = ray.point;
-    ret.hit = false;       // was there an intersection?
-    ret.distance = 0.0f;   // at what distance did the intersection occur?
-    ret.position = Vec3{}; // where was the intersection?
-    ret.normal = Vec3{};   // what was the surface normal at the intersection?
+    ret.hit = true;       // was there an intersection?
+    ret.distance = t;   // at what distance did the intersection occur?
+    ret.position = ray.at(t); // where was the intersection?
+    ret.normal = (1 - u - v) * v_0.normal + u * v_1.normal + v * v_2.normal;   // what was the surface normal at the intersection?
                            // (this should be interpolated between the three vertex normals)
-	ret.uv = Vec2{};	   // What was the uv associated with the point of intersection?
+	ret.uv = (1 - u - v) * v_0.uv + u * v_1.uv + v * v_2.uv;	   // What was the uv associated with the point of intersection?
 						   // (this should be interpolated between the three vertex uvs)
     return ret;
 }
