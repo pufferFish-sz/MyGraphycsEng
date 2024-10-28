@@ -16,6 +16,10 @@ BBox Triangle::bbox() const {
     // account for that here, or later on in BBox::hit.
 
     BBox box;
+	box.enclose(vertex_list[v0].position);
+	box.enclose(vertex_list[v1].position);
+	box.enclose(vertex_list[v2].position);
+
     return box;
 }
 
@@ -61,8 +65,8 @@ Trace Triangle::hit(const Ray& ray) const {
 		return ret;
 	}
 
-	// check if intersection is in front of the ray origin
-	if (t <= 0.0f) {
+	// check if intersection is within ray's distance bound
+	if (t < ray.dist_bounds.x || t > ray.dist_bounds.y) {
 		ret.hit = false;
 		return ret;
 	}
