@@ -11,6 +11,7 @@
 #include "ray.h"
 #include "vec2.h"
 #include "vec3.h"
+#include <iostream>
 
 struct BBox {
 
@@ -69,7 +70,8 @@ struct BBox {
 				if (a < b) {
 					min[i] += a;
 					max[i] += b;
-				} else {
+				}
+				else {
 					min[i] += b;
 					max[i] += a;
 				}
@@ -85,8 +87,53 @@ struct BBox {
 		// If the ray intersected the bounding box within the range given by
 		// [times.x,times.y], update times with the new intersection times.
 		// This means at least one of tmin and tmax must be within the range
+		//BBox b;
 
-		return false;
+		float tmin, tmax, tymin, tymax, tzmin, tzmax;
+
+		Vec3 invdir = 1.0f / ray.dir;
+		tmin = (min.x - ray.point.x) * invdir.x;
+		tmax = (max.x - ray.point.x) * invdir.x;
+		tymin = (min.y - ray.point.y) * invdir.y;
+		tymax = (max.y - ray.point.y) * invdir.y;
+
+		if ((tmin > tymax) || (tymin > tmax)){
+			return false;
+		}
+
+		if (tymin > tmin) {
+			tmin = tymin;
+		}
+		if (tymax < tmax) {
+			tmax = tymax;
+		}
+
+		tzmin = (min.z - ray.point.z) * invdir.z;
+		tzmax = (max.z - ray.point.z) * invdir.z;
+
+		if ((tmin > tzmax) || (tzmin > tmax)) {
+			return false;
+		}
+
+		if (tzmin > tmin) {
+			tmin = tzmin;
+		}
+		if (tzmax < tmax) {
+			tmax = tzmax;
+		}
+
+		// Check for overlap with the input range [times.x, times.y]
+		float new_tmin = std::max(tmin, times.x);
+		float new_tmax = std::min(tmax, times.y);
+
+		if (new_tmin > new_tmax) {
+			return false;  // No intersection within the desired range
+		}
+
+		// Update times with the intersection interval
+		times.x = new_tmin;
+		times.y = new_tmax;
+		return true;
 	}
 
 	/// Get the eight corner points of the bounding box

@@ -20,6 +20,22 @@ BBox Triangle::bbox() const {
 	box.enclose(vertex_list[v1].position);
 	box.enclose(vertex_list[v2].position);
 
+	// expand the bounding box by a small epsilon to avoid zero-volume boxes
+	const float epsilon = 1e-5f;
+	Vec3 size = box.max - box.min;
+	if (size.x < epsilon) {
+		box.min.x -= epsilon * 0.5f;
+		box.max.x += epsilon * 0.5f;
+	}
+	if (size.y < epsilon) {
+		box.min.y -= epsilon * 0.5f;
+		box.max.y += epsilon * 0.5f;
+	}
+	if (size.z < epsilon) {
+		box.min.z -= epsilon * 0.5f;
+		box.max.z += epsilon * 0.5f;
+	}
+
     return box;
 }
 
