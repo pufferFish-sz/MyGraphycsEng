@@ -5,6 +5,7 @@
 #include "tri_mesh.h"
 
 #include <stack>
+#include <iostream>
 
 namespace PT {
 
@@ -24,16 +25,97 @@ struct SAHBucketData {
 template<typename Primitive>
 void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size) {
 	//A3T3 - build a bvh
+	auto surface_area_heuristic = [&](float S_A, float S_B, float N_A, float N_B) {
+			return S_A * N_A  + S_B  * N_B;
+		};
 
+	auto computeBucketIndex = [&](float centroid, float axis_min, float axis_max, int num_buckets) {
+		float axis_range = axis_max - axis_min;
+		float normalized_position = (centroid - axis_min) / axis_range;
+		int bucket = static_cast<int>(normalized_position * num_buckets);
+		return std::clamp(bucket, 0, num_buckets - 1); // Clamp to ensure the bucket is within bounds
+		};
+
+	std::function<size_t(size_t, size_t, size_t)> build_recursive = [&](size_t start, size_t end, size_t max_leaf_size) -> size_t {
+		BBox box;
+		for (size_t i = start; i < end; i++) { // bounding box for current node
+			box.enclose(primitives[i].bbox());
+		}
+
+		size_t num_prims = end - start;
+		if (num_prims <= max_leaf_size) {
+			return new_node(box, start, num_prims, 0, 0); //l = r = 0 means leaf
+		}
+		int num_partitions = 12;
+		float best_cost = FLT_MAX;
+		int best_axis = -1;
+		int best_split = -1;
+
+		// loop through axis x,y,z
+		for (int axis = 0; axis < 3; axis++) {
+			std::vector<SAHBucketData> buckets(num_partitions); // initialize
+
+			// bucket the primitives
+			for (const auto& prim : primitives) {
+				Vec3 centroid = prim.bbox().center();
+				//std::cout << "the current axis is " << axis << std::endl;
+				int bucket_index = computeBucketIndex(centroid[axis], box.min[axis], box.max[axis], num_partitions);
+				//std::cout << "the primitive centroid is " << centroid << "and it gets placed in " << bucket_index << std::endl;
+				buckets[bucket_index].bb.enclose(prim.bbox());
+				buckets[bucket_index].num_prims++;
+			}
+
+			// evaluate the SAH for each partition
+			for (int split = 1; split < num_partitions; split++) {
+				BBox left_box, right_box;
+				float left_count = 0, right_count = 0;
+
+				for (int b = 0; b < split; b++) {
+					left_box.enclose(buckets[b].bb);
+					left_count += buckets[b].num_prims;
+				}
+				for (int b = split; b < num_partitions; b++) {
+					right_box.enclose(buckets[b].bb);
+					right_count += buckets[b].num_prims;
+				}
+
+				// calculate SAH
+				float cost = surface_area_heuristic(left_box.surface_area(), right_box.surface_area(), left_count, right_count);
+				if (cost < best_cost) {
+					best_cost = cost;
+					best_axis = axis;
+					best_split = split;
+				}
+			}
+		}
+
+		// partition primitives using best split with std::partition
+		if (best_axis != -1) {
+			float axis_split_value = box.min[best_axis] + best_split * (box.max[best_axis] - box.min[best_axis]) / (float)num_partitions;
+
+			auto it = std::partition(primitives.begin() + start, primitives.begin() + end, [&](const Primitive& prim) {
+				return prim.bbox().center()[best_axis] < axis_split_value;
+				});
+
+			size_t mid = std::distance(primitives.begin(), it);
+
+			//recurse on both children
+			size_t left_index = build_recursive(start, mid, max_leaf_size);
+			size_t right_index = build_recursive(mid, end, max_leaf_size);
+
+			return new_node(box, start, num_prims, left_index, right_index);
+		}
+		return new_node(box, start, num_prims, 0, 0); // leaf node
+		
+	};
 	// Keep these
     nodes.clear();
     primitives = std::move(prims);
 
     // Construct a BVH from the given vector of primitives and maximum leaf
     // size configuration.
-
-	//TODO
-
+	root_idx = build_recursive(0, primitives.size(), max_leaf_size);
+	
 }
 
 template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
