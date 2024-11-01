@@ -30,10 +30,17 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
 		};
 
 	auto computeBucketIndex = [&](float centroid, float axis_min, float axis_max, int num_buckets) {
-		float axis_range = axis_max - axis_min;
-		float normalized_position = (centroid - axis_min) / axis_range;
-		int bucket = static_cast<int>(normalized_position * num_buckets);
-		return std::clamp(bucket, 0, num_buckets - 1); // Clamp to ensure the bucket is within bounds
+		 // Ensure we handle cases where the range is effectively zero
+		if (axis_min == axis_max) {
+			return 0; // place all centroids in the first bucket if there's no range
+		}
+
+		// calculate the size of each interval (bucket width)
+		float interval_size = (axis_max - axis_min) / num_buckets;
+
+		// Find the bucket index based on which interval the centroid falls into
+		int bucket = (int)((centroid - axis_min) / interval_size);
+		return bucket;
 		};
 
 	std::function<size_t(size_t, size_t, size_t)> build_recursive = [&](size_t start, size_t end, size_t max_leaf_size) -> size_t {
@@ -56,12 +63,10 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
 			std::vector<SAHBucketData> buckets(num_partitions); // initialize
 
 			// bucket the primitives
-			for (const auto& prim : primitives) {
-				Vec3 centroid = prim.bbox().center();
-				//std::cout << "the current axis is " << axis << std::endl;
+			for (size_t i = start; i < end; i++) {
+				Vec3 centroid = primitives[i].bbox().center();
 				int bucket_index = computeBucketIndex(centroid[axis], box.min[axis], box.max[axis], num_partitions);
-				//std::cout << "the primitive centroid is " << centroid << "and it gets placed in " << bucket_index << std::endl;
-				buckets[bucket_index].bb.enclose(prim.bbox());
+				buckets[bucket_index].bb.enclose(primitives[i].bbox());
 				buckets[bucket_index].num_prims++;
 			}
 
@@ -90,14 +95,20 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
 		}
 
 		// partition primitives using best split with std::partition
-		if (best_axis != -1) {
-			float axis_split_value = box.min[best_axis] + best_split * (box.max[best_axis] - box.min[best_axis]) / (float)num_partitions;
+		if (best_axis != -1 && num_prims > max_leaf_size) {
+			float axis_split_value = box.min[best_axis] + best_split * ((box.max[best_axis] - box.min[best_axis]) / (float)num_partitions);
+			//std::cout << "the box min is " << box.min[best_axis] << " the box max is " << box.max[best_axis] << std::endl;
 
 			auto it = std::partition(primitives.begin() + start, primitives.begin() + end, [&](const Primitive& prim) {
-				return prim.bbox().center()[best_axis] < axis_split_value;
+				return prim.bbox().center()[best_axis] <= axis_split_value;
 				});
 
 			size_t mid = std::distance(primitives.begin(), it);
+
+			if (start == mid || mid == end) {
+				// handle the case where one partition is empty
+				mid = start + num_prims / 2; // arbitrarily split in half
+			}
 
 			//recurse on both children
 			size_t left_index = build_recursive(start, mid, max_leaf_size);
@@ -111,10 +122,9 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
 	// Keep these
     nodes.clear();
     primitives = std::move(prims);
-
     // Construct a BVH from the given vector of primitives and maximum leaf
     // size configuration.
-	root_idx = build_recursive(0, primitives.size(), max_leaf_size);
+	root_idx = build_recursive(0, primitives.size() , max_leaf_size);
 	
 }
 
@@ -129,12 +139,60 @@ template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
     // Again, remember you can use hit() on any Primitive value.
 
 	//TODO: replace this code with a more efficient traversal:
-    Trace ret;
+  /*  Trace ret;
     for(const Primitive& prim : primitives) {
         Trace hit = prim.hit(ray);
         ret = Trace::min(ret, hit);
     }
-    return ret;
+    return ret;*/
+	std::function<Trace(const Ray&, size_t, float, float)> hit_helper = [&](const Ray& ray, size_t node_idx, float t_min, float t_max) {
+		// check if the BVH is empty
+		if (nodes.empty() || primitives.empty()) {
+			//std::cout << "returned with no hit!!!!!!!!!!!!!!!! " << std::endl;
+			return Trace(false, Vec3(), Vec3(), Vec3(), Vec2{}); // no hit
+		}
+		
+		const Node& node = nodes[node_idx];
+		Trace closest_hit;
+		closest_hit.hit = false;
+		closest_hit.distance = t_max;
+
+		Vec2 times(t_min, t_max);
+
+		if (!node.bbox.hit(ray, times)) {
+			return closest_hit;
+		}
+
+		if (node.is_leaf()) {
+			for (size_t i = node.start; i < node.start + node.size; i++) {
+				Trace hit = primitives[i].hit(ray);
+				if (hit.hit && hit.distance < closest_hit.distance) {
+					closest_hit = hit; // update if a closer intersection is found 
+				}
+			}
+		}
+		else {
+			//recursively check left and right children
+			Trace left_hit = hit_helper(ray, node.l, times.x, closest_hit.distance);
+			if (left_hit.hit && left_hit.distance < closest_hit.distance) {
+				closest_hit = left_hit;
+			}
+
+			Trace right_hit = hit_helper(ray, node.r, times.x, closest_hit.distance);
+			if (right_hit.hit && right_hit.distance < closest_hit.distance) {
+				closest_hit = right_hit;
+			}
+		}
+
+		return closest_hit;
+		};
+
+	Trace ret = hit_helper(ray, root_idx, ray.dist_bounds.x, ray.dist_bounds.y);
+	if (ret.hit == true) {
+		//std::cout << "There is a hit!!! :)))))))))))))))))))"<< std::endl;
+	}
+	return ret;
+
 }
 
 template<typename Primitive>

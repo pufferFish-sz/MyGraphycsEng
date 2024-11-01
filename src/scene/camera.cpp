@@ -3,6 +3,7 @@
 #include "../gui/manager.h"
 #include "../pathtracer/samplers.h"
 #include "../test.h"
+#include <iostream>
 
 std::pair<Ray, float> Camera::sample_ray(RNG &rng, uint32_t px, uint32_t py) {
 	//A3T1 - step 1 - camera rays
@@ -22,8 +23,11 @@ std::pair<Ray, float> Camera::sample_ray(RNG &rng, uint32_t px, uint32_t py) {
 	//Compute the position on the sensor (in pixels):
 	Samplers::Rect s;
 	Vec2 offset = s.sample(rng);
+	//std::cout << "Sample Point: " << offset.x << ", " << offset.y << std::endl;
 	float offset_pdf = s.pdf(offset);
+	//std::cout << "offset_pdf: " << offset_pdf << std::endl;
 	Vec2 sensor_pixel = Vec2(float(px), float(py)) + offset;
+	//std::cout << "sensor pixel: " << sensor_pixel << std::endl;
 
 	//TODO: Transform from sensor pixels into world position on the sensor plane
 	(void)sensor_pixel;
@@ -32,10 +36,12 @@ std::pair<Ray, float> Camera::sample_ray(RNG &rng, uint32_t px, uint32_t py) {
 	Vec3 sensor_pixel_in_world = Vec3((sensor_pixel.x / film.width - 0.5f) * w, 
 									(sensor_pixel.y / film.height - 0.5f) * h, 
 									-1.0f);
+	//std::cout << "sensor pixel in world: " << sensor_pixel_in_world << std::endl;
 	//Build ray:
 	Ray ray;
 	ray.point = Vec3(0,0,0); //ray should start at the origin
 	ray.dir = sensor_pixel_in_world - ray.point; //TODO: compute from sensor plane position
+	//std::cout << "ray.dir: " << ray.dir << std::endl;
 	ray.depth = film.max_ray_depth; //rays should, by default, go as deep as the max depth parameter allows
 	
    	return {ray, offset_pdf};

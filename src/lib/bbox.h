@@ -93,10 +93,14 @@ struct BBox {
 		Vec3 invdir = 1.0f / ray.dir;
 		tmin = (min.x - ray.point.x) * invdir.x;
 		tmax = (max.x - ray.point.x) * invdir.x;
+		if (tmin > tmax) std::swap(tmin, tmax);
+
 		tymin = (min.y - ray.point.y) * invdir.y;
 		tymax = (max.y - ray.point.y) * invdir.y;
+		if (tymin > tymax) std::swap(tymin, tymax);
 
 		if ((tmin > tymax) || (tymin > tmax)){
+			//std::cout << "Miss on Y-axis bounds check." << std::endl;
 			return false;
 		}
 
@@ -109,8 +113,10 @@ struct BBox {
 
 		tzmin = (min.z - ray.point.z) * invdir.z;
 		tzmax = (max.z - ray.point.z) * invdir.z;
+		if (tzmin > tzmax) std::swap(tzmin, tzmax);
 
 		if ((tmin > tzmax) || (tzmin > tmax)) {
+			//std::cout << "Miss on Z-axis bounds check." << std::endl;
 			return false;
 		}
 
@@ -126,12 +132,14 @@ struct BBox {
 		float new_tmax = std::min(tmax, times.y);
 
 		if (new_tmin > new_tmax) {
+			//std::cout << "No intersection within range." << std::endl;
 			return false;  // No intersection within the desired range
 		}
 
 		// Update times with the intersection interval
 		times.x = new_tmin;
 		times.y = new_tmax;
+		//std::cout << "Intersection found: tmin=" << new_tmin << ", tmax=" << new_tmax << std::endl;
 		return true;
 	}
 
