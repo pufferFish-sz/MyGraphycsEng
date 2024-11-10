@@ -8,8 +8,8 @@
 
 namespace PT {
 
-constexpr bool SAMPLE_AREA_LIGHTS = true;
-constexpr bool RENDER_NORMALS = true;
+constexpr bool SAMPLE_AREA_LIGHTS = false;
+constexpr bool RENDER_NORMALS = false;
 constexpr bool LOG_CAMERA_RAYS = false;
 constexpr bool LOG_AREA_LIGHT_RAYS = false;
 static thread_local RNG log_rng(0x15462662); //separate RNG for logging a fraction of rays to avoid changing result when logging enabled
@@ -27,15 +27,26 @@ Spectrum Pathtracer::sample_direct_lighting_task4(RNG &rng, const Shading_Info& 
     Spectrum radiance = sum_delta_lights(hit);
 
 	//TODO: ask hit.bsdf to sample an in direction that would scatter out along hit.out_dir
-
+	Materials::Scatter scat = hit.bsdf.scatter(rng, hit.out_dir, hit.uv);
 	//TODO: rotate that direction into world coordinates
-
+	Vec3 world_direction = hit.object_to_world.rotate(scat.direction);
 	//TODO: construct a ray travelling in that direction
 	// NOTE: because we want emitted light only, can use depth = 0 for the ray
-
+	Ray ray;
+	ray.point = hit.pos;
+	ray.depth = 0;
+	ray.dir = world_direction;
+	ray.dist_bounds = Vec2(0.001f, FLT_MAX);
 	//TODO: trace() the ray to get the emitted light (first part of the return value)
 
+	Spectrum direct_light = trace(rng, ray).first;
+
 	//TODO: weight properly depending on the probability of the sampled scattering direction and add to radiance
+	float pdf_val = hit.bsdf.pdf(hit.out_dir, scat.direction);
+
+	if (pdf_val > 0.0f) {
+		radiance += direct_light * scat.attenuation / pdf_val;
+	}
 
 	return radiance;
 }
@@ -65,18 +76,29 @@ Spectrum Pathtracer::sample_indirect_lighting(RNG &rng, const Shading_Info& hit)
 	//NOTE: this function and sample_direct_lighting_task4() perform very similar tasks.
 
 	//TODO: ask hit.bsdf to sample an in direction that would scatter out along hit.out_dir
-
+	Materials::Scatter scat = hit.bsdf.scatter(rng, hit.out_dir, hit.uv);
 	//TODO: rotate that direction into world coordinates
-
+	Vec3 world_direction = hit.object_to_world.rotate(scat.direction);
 	//TODO: construct a ray travelling in that direction
 	// NOTE: be sure to reduce the ray depth! otherwise infinite recursion is possible
+	Ray ray;
+	ray.point = hit.pos;
+	ray.dir = world_direction;
+	ray.dist_bounds = Vec2(0.001f, FLT_MAX); // avoid self intersection
+	ray.depth = hit.depth - 1;
 
 	//TODO: trace() the ray to get the reflected light (the second part of the return value)
-
+	Spectrum indirect_light = trace(rng, ray).second;
 	//TODO: weight properly depending on the probability of the sampled scattering direction and set radiance
 
-	Spectrum radiance;
-    return radiance;
+	float pdf_val = hit.bsdf.pdf(hit.out_dir, scat.direction);
+	
+	if (pdf_val > 0.0f) {
+		Spectrum radiance = indirect_light * scat.attenuation / pdf_val;
+		return radiance;
+	}
+	
+    return Spectrum(0.0f);
 }
 
 std::pair<Spectrum, Spectrum> Pathtracer::trace(RNG &rng, const Ray& ray) {
