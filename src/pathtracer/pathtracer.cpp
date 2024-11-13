@@ -41,6 +41,10 @@ Spectrum Pathtracer::sample_direct_lighting_task4(RNG &rng, const Shading_Info& 
 
 	Spectrum direct_light = trace(rng, ray).first;
 
+	if (hit.bsdf.is_specular()) {
+		radiance += direct_light * scat.attenuation;
+		return radiance;
+	}
 	//TODO: weight properly depending on the probability of the sampled scattering direction and add to radiance
 	float pdf_val = hit.bsdf.pdf(hit.out_dir, scat.direction);
 
@@ -89,16 +93,20 @@ Spectrum Pathtracer::sample_indirect_lighting(RNG &rng, const Shading_Info& hit)
 
 	//TODO: trace() the ray to get the reflected light (the second part of the return value)
 	Spectrum indirect_light = trace(rng, ray).second;
-	//TODO: weight properly depending on the probability of the sampled scattering direction and set radiance
 
+	Spectrum radiance(0.0f);
+	if (hit.bsdf.is_specular()) {
+		radiance = indirect_light * scat.attenuation;
+		return radiance;
+	}
+	//TODO: weight properly depending on the probability of the sampled scattering direction and set radiance
 	float pdf_val = hit.bsdf.pdf(hit.out_dir, scat.direction);
 	
 	if (pdf_val > 0.0f) {
-		Spectrum radiance = indirect_light * scat.attenuation / pdf_val;
-		return radiance;
+		radiance = indirect_light * scat.attenuation / pdf_val;
 	}
 	
-    return Spectrum(0.0f);
+    return radiance;
 }
 
 std::pair<Spectrum, Spectrum> Pathtracer::trace(RNG &rng, const Ray& ray) {
