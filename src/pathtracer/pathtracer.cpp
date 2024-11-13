@@ -8,7 +8,7 @@
 
 namespace PT {
 
-constexpr bool SAMPLE_AREA_LIGHTS = false;
+constexpr bool SAMPLE_AREA_LIGHTS = true;
 constexpr bool RENDER_NORMALS = false;
 constexpr bool LOG_CAMERA_RAYS = false;
 constexpr bool LOG_AREA_LIGHT_RAYS = false;
@@ -36,7 +36,7 @@ Spectrum Pathtracer::sample_direct_lighting_task4(RNG &rng, const Shading_Info& 
 	ray.point = hit.pos;
 	ray.depth = 0;
 	ray.dir = world_direction;
-	ray.dist_bounds = Vec2(0.001f, FLT_MAX);
+	ray.dist_bounds = Vec2(EPS_F, FLT_MAX);
 	//TODO: trace() the ray to get the emitted light (first part of the return value)
 
 	Spectrum direct_light = trace(rng, ray).first;
@@ -68,6 +68,47 @@ Spectrum Pathtracer::sample_direct_lighting_task6(RNG &rng, const Shading_Info& 
 		if (log_rng.coin_flip(0.001f)) log_ray(Ray(), 100.0f);
 	}
 
+	Vec3 world_direction;
+	float pdf_val;
+	float combined_pdf;
+	Spectrum attenuation;
+	// randomly decide whether to sample BSDF or area lights
+	bool sample_bsdf = rng.coin_flip(0.5f);
+
+	if (sample_bsdf) {
+		// sample direction from the BSDF in local space, convert to world space
+		Materials::Scatter scat = hit.bsdf.scatter(rng, hit.out_dir, hit.uv);
+		world_direction = hit.object_to_world.rotate(scat.direction);
+
+		pdf_val = hit.bsdf.pdf(hit.out_dir, scat.direction);
+		combined_pdf = 0.5f * pdf_val + 0.5f * area_lights_pdf(hit.pos, world_direction);
+		attenuation = scat.attenuation;
+	}
+	else {
+		// sample direction from area lights directly in world space
+		world_direction = sample_area_lights(rng, hit.pos);
+		pdf_val = area_lights_pdf(hit.pos, world_direction);  // Scale PDF by mixture weight
+		combined_pdf = 0.5f * pdf_val + hit.bsdf.pdf(hit.out_dir, hit.world_to_object.rotate(world_direction));
+		attenuation = hit.bsdf.evaluate(hit.out_dir, hit.world_to_object.rotate(world_direction), hit.uv);
+	}
+
+	Ray ray;
+	ray.point = hit.pos;
+	ray.depth = 0;
+	ray.dir = world_direction;
+	ray.dist_bounds = Vec2(EPS_F, FLT_MAX);
+	Spectrum direct_light = trace(rng, ray).first;
+
+	if (hit.bsdf.is_specular()) {
+		radiance += direct_light * attenuation;
+		return radiance;
+	}
+
+	if (pdf_val > 0.0f) {
+		// Add the contribution of direct light, scaling by BSDF and PDF values
+		radiance += (direct_light * attenuation) / combined_pdf;
+	}
+
 	return radiance;
 }
 
@@ -88,7 +129,7 @@ Spectrum Pathtracer::sample_indirect_lighting(RNG &rng, const Shading_Info& hit)
 	Ray ray;
 	ray.point = hit.pos;
 	ray.dir = world_direction;
-	ray.dist_bounds = Vec2(0.001f, FLT_MAX); // avoid self intersection
+	ray.dist_bounds = Vec2(EPS_F, FLT_MAX); // avoid self intersection
 	ray.depth = hit.depth - 1;
 
 	//TODO: trace() the ray to get the reflected light (the second part of the return value)
