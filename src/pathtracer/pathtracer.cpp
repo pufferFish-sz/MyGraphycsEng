@@ -11,7 +11,7 @@ namespace PT {
 constexpr bool SAMPLE_AREA_LIGHTS = true;
 constexpr bool RENDER_NORMALS = false;
 constexpr bool LOG_CAMERA_RAYS = false;
-constexpr bool LOG_AREA_LIGHT_RAYS = false;
+constexpr bool LOG_AREA_LIGHT_RAYS = true;
 static thread_local RNG log_rng(0x15462662); //separate RNG for logging a fraction of rays to avoid changing result when logging enabled
 
 Spectrum Pathtracer::sample_direct_lighting_task4(RNG &rng, const Shading_Info& hit) {
@@ -63,11 +63,6 @@ Spectrum Pathtracer::sample_direct_lighting_task6(RNG &rng, const Shading_Info& 
     // sample area lights using mixture sampling.
 	Spectrum radiance = sum_delta_lights(hit);
 
-	// Example of using log_ray():
-	if constexpr (LOG_AREA_LIGHT_RAYS) {
-		if (log_rng.coin_flip(0.001f)) log_ray(Ray(), 100.0f);
-	}
-
 	Vec3 world_direction;
 	float pdf_val;
 	float combined_pdf;
@@ -107,6 +102,11 @@ Spectrum Pathtracer::sample_direct_lighting_task6(RNG &rng, const Shading_Info& 
 	if (pdf_val > 0.0f) {
 		// Add the contribution of direct light, scaling by BSDF and PDF values
 		radiance += (direct_light * attenuation) / combined_pdf;
+	}
+
+	// Example of using log_ray():
+	if constexpr (LOG_AREA_LIGHT_RAYS) {
+		if (log_rng.coin_flip(0.001f)) log_ray(ray, 20.0f);
 	}
 
 	return radiance;
