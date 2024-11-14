@@ -181,16 +181,13 @@ Vec3 Sphere::Image::sample(RNG &rng) const {
 		// Tip: std::upper_bound
 		float p = rng.unit();
 		auto i = std::upper_bound(_cdf.begin(), _cdf.end(), p);
-		/*for (uint32_t j = 0; j < w * h; ++j) {
-			std::cout << "the current cdf is " << _cdf[j] << std::endl;
-		}*/
+		
 		uint32_t index = (uint32_t)std::distance(_cdf.begin(), i);
-		//std::cout << "the index is" << index << std::endl;
 		
 		uint32_t y = index / w;
 		uint32_t x = index % w;
 
-		float theta = PI_F * (y + 0.5f) / h;
+		float theta = PI_F * (h - y + 0.5f) / h;
 		float phi = 2.0f * PI_F * (x + 0.5f) / w;
 
 		// convert spherical to cartesian
