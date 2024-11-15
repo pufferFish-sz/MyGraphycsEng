@@ -115,7 +115,7 @@ Vec3 Sphere::Uniform::sample(RNG &rng) const {
 	float Xi2 = rng.unit();
 
 	float cos_theta = 2.0f * Xi1 - 1.0f;
-	float sin_theta = std::sqrtf(1.0f - cos_theta * cos_theta);
+	float sin_theta = sqrtf(1.0f - cos_theta * cos_theta);
 	float phi = 2.0f * PI_F * Xi2;
 
 	float xs = sin_theta * std::cos(phi);
