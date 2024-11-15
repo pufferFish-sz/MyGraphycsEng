@@ -12,68 +12,90 @@ AndrewID: shangyiz
 
 (##) A3T1 CHECKPOINT
 
-You do not need any screenshots for this task. 
-The time for this one is relatively short, about an hour. But I seemed to fail on 2 test cases listed on Piazza, not sure if they
-are corret though. I double checked my formula but could't find out where the problem is.  
+You do not need any screenshots for this task.
 
-Your completion will be graded based on the reference `test.a3.task1.cpp` file and 
+The time for this one is relatively short, about an hour. But I seemed to fail on 2 test cases listed on Piazza, not sure if they
+are corret though. I double checked my formula but could't find out where the problem is.
+
+Your completion will be graded based on the reference `test.a3.task1.cpp` file and
 checking that camera rays properly fill up the camera view frustrum.
 
 (##) A3T2 CHECKPOINT
 
-You do not need any screenshots for this task. 
-The second task was also ok, didn't spend too much time doing it. 
+You do not need any screenshots for this task.
 
-Your completion will be graded based on the reference `test.a3.task2.*.cpp` files and 
+The second task was also ok, didn't spend too much time doing it.
+
+Your completion will be graded based on the reference `test.a3.task2.*.cpp` files and
 checking that rendering spheres and triangles works properly.
 
 (##) A3T3 CHECKPOINT
 
-You do not need any screenshots for this task. 
-The third task I spend the most time. It was a solid two days and a half. It was very tough ;-; specifically didn't 
+You do not need any screenshots for this task.
+
+The third task I spend the most time. It was a solid two days and a half. It was very tough ;-; specifically didn't
 know what to do when the function kept recursing when I didn't take care well of the case that primitives are all on one side of the partition.
 Right now it has 12 buckets and works alright.
 
-Your completion will be graded based on the reference `test.a3.task3.*.cpp` files and 
+Your completion will be graded based on the reference `test.a3.task3.*.cpp` files and
 checking that the generated BVH looks reasonable and rendering large meshes is fast and correct.
 
 (##) A3T4 FINAL
 
-You do not need any screenshots for this task. 
+You do not need any screenshots for this task.
 
-Your completion will be graded based on the reference `test.a3.task4.*.cpp` files and 
+Your completion will be graded based on the reference `test.a3.task4.*.cpp` files and
 checking that rendering lambertian materials look correct.
 
 (##) A3T5 FINAL
 
-You do not need any screenshots for this task. 
+You do not need any screenshots for this task.
 
-Your completion will be graded based on the reference `test.a3.task5.*.cpp` files and 
+Refraction was hard. There were a lot of nuances that had to be taken care of.
+
+Your completion will be graded based on the reference `test.a3.task5.*.cpp` files and
 checking that rendering mirror, refract and glass materials look correct.
 
 (##) A3T6 FINAL
 
-You do not need any screenshots for this task. 
+You do not need any screenshots for this task.
 
-Your completion will be graded based on the reference `test.a3.task6.*.cpp` files and 
+Your completion will be graded based on the reference `test.a3.task6.*.cpp` files and
 checking that there is an improvement between using task 4 direct lighting and using task 6 direct lighting.
 
 (##) A3T7 FINAL
 
-You do not need any screenshots for this task. 
+You do not need any screenshots for this task.
 
-Your completion will be graded based on the reference `test.a1.task7.*.cpp` file and 
+Understanding this task took a little bit of time.
+
+Your completion will be graded based on the reference `test.a1.task7.*.cpp` file and
 checking that rendering scenes with environment lighting yields correct sampling.
 
 (##) RENDERED IMAGE FINAL
 
 Your image:
 <div class="twentytwenty-container">
-    <img src="A3-writeup/reference/render-image.png" alt="Your creation">
+    <img src="A3-writeup/reference/render-image.png" alt="Cabybara Restaurant">
 </div>
 Explanation of what it is and how you made it:
+This scene is from peicing together different models and textures online. I also used environmental lighting as the restaurant.
 
 Any free model sources you need to credit?
+
+3D models on Poly.Pizza:
+
+Table Round Small by Quaternius
+Lemon Half by Kenney
+
+Cat oil painting:
+https://www.etsy.com/listing/1669963386/cute-funny-fat-cat-oil-painting-style
+
+Cabybara oil painting:
+An Oil Painting Portrait Of A Capybara Wearing Medieval Royal Robes And An Ornate by Celestial Images
+
+Environmental lighting:
+https://polyhaven.com/a/warm_restaurant_night
 
 (##) EXTRA CREDIT FINAL
 
@@ -84,13 +106,20 @@ Use this section to explain any extra credit implementations you have made.
 Use this section to provide feedback about the assignment.
 
 <!--- Markdeep & image comparison library - probably no need to change anything below -->
-<style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style>
-<script src="resources/markdeep.min.js"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>
+<style class="fallback">
+    body {
+        visibility: hidden;
+        white-space: pre;
+        font-family: monospace
+    }
+</style>
+<script src="resources/markdeep.min.js"></script>
+<script>window.alreadyProcessedMarkdeep || (document.body.style.visibility = "visible")</script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
 <script src="resources/jquery.event.move.js"></script>
 <script src="resources/jquery.twentytwenty.js"></script>
 <link href="resources/offcanvas.css" rel="stylesheet">
 <link href="resources/twentytwenty.css" rel="stylesheet" type="text/css" />
 <script>
-$(window).load(function(){$(".twentytwenty-container").twentytwenty({default_offset_pct: 0.5});});
+    $(window).load(function () { $(".twentytwenty-container").twentytwenty({ default_offset_pct: 0.5 }); });
 </script>
