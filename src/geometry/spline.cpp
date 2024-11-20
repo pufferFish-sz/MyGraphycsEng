@@ -12,8 +12,69 @@ template<typename T> T Spline<T>::at(float time) const {
 
 	// Be wary of edge cases! What if time is before the first knot,
 	// before the second knot, etc...
+	
+	auto initial = knots.begin();
+	auto last = std::prev(knots.end());
+	// the edge cases:
+	if (knots.empty()) {
+		return T();
+	}
+	else if (knots.size() == 1) {
+		return initial->second;
+	}
+	else if (time <= initial->first) {
+		return initial->second;
+	}
+	else if (time >= last->first) {
+		return last->second;
+	}
 
-	return cubic_unit_spline(0.0f, T(), T(), T(), T());
+	// guarenteed 2 or more knots
+	auto k2 = knots.upper_bound(time);
+	auto k1 = std::prev(k2);
+
+	T p1 = k1->second;
+	T p2 = k2->second;
+	float t1 = k1->first;
+	float t2 = k2->first;
+
+	T p0;
+	float t0;
+	float time_interval = t2 - t1;
+
+	if (k1->first == initial->first) {
+		//need to find virtual knot using mirroring
+		t0 = t1 - (t2 - t1);
+		p0 = p1 - (p2 - p1);
+	}
+	else {
+		auto k0 = std::prev(k1);
+		t0 = k0->first;
+		p0 = k0->second;
+	}
+
+	T p3;
+	float t3;
+	if (k2->first == last->first) {
+		//need to find virtual knot using mirroring
+		t3 = t2 + (t2 - t1);
+		p3 = p2 + (p2 - p1);
+	}
+	else {
+		auto k3 = std::next(k2);
+		t3 = k3->first;
+		p3 = k3->second;
+	}
+
+	// then need to find tangents
+
+	T m0 = (p2 - p0) / (t2 - t0) * time_interval;
+
+	T m1 = (p3 - p1) / (t3 - t1) * time_interval;
+
+	float normalized_time = (time - t1) / time_interval;
+
+	return cubic_unit_spline(normalized_time, p1, p2,m0, m1);
 }
 
 template<typename T>
@@ -35,9 +96,7 @@ T Spline<T>::cubic_unit_spline(float time, const T& position0, const T& position
 	float h01 = -2 * time_cubed + 3 * time_squared;
 	float h11 = time_cubed - time_squared;
 
-	T hermite = h00 * position0 + h10 * tangent0 + h01 * position1 + h11 * tangent1;
-
-	return hermite;
+	return h00 * position0 + h10 * tangent0 + h01 * position1 + h11 * tangent1;
 }
 
 template class Spline<float>;
