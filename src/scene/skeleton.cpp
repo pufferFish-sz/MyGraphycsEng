@@ -44,11 +44,19 @@ std::vector< Mat4 > Skeleton::bind_pose() const {
 	bind.reserve(bones.size());
 
 	//NOTE: bones is guaranteed to be ordered such that parents appear before child bones.
-
 	for (auto const &bone : bones) {
 		(void)bone; //avoid complaints about unused bone
 		//placeholder -- your code should actually compute the correct transform:
-		bind.emplace_back(Mat4::I);
+		
+		Mat4 location;
+		if (bone.parent == -1U) { // no parent
+			location = Mat4::translate(base);
+		}
+		else { // with parent
+			Mat4 local_transform = Mat4::translate(bones[bone.parent].extent);
+			location = bind[bone.parent] * local_transform; // translate by extent of its parent
+		}
+		bind.emplace_back(location);
 	}
 
 	assert(bind.size() == bones.size()); //should have a transform for every bone.
@@ -67,8 +75,38 @@ std::vector< Mat4 > Skeleton::current_pose() const {
 	//Bone::compute_rotation_axes() will tell you what axes (in local bone space) Bone::pose should rotate around.
 	//Mat4::angle_axis(angle, axis) will produce a matrix that rotates angle (in degrees) around a given axis.
 
-	return std::vector< Mat4 >(bones.size(), Mat4::I);
+	std::vector< Mat4 > current;
+	current.reserve(bones.size());
 
+	for (const auto& bone : bones) {
+		Mat4 location;
+		Mat4 translation;
+		Mat4 rotation;
+		Vec3 x, y, z;
+		bone.compute_rotation_axes(&x, &y, &z);
+
+		if (bone.parent == -1U) {
+			translation = Mat4::translate(base + base_offset);
+
+			rotation = Mat4::angle_axis(bone.pose.z, z) *
+					   Mat4::angle_axis(bone.pose.y, y) * 
+					   Mat4::angle_axis(bone.pose.x, x);
+			location = translation * rotation;
+		}
+		else {
+			translation = Mat4::translate(bones[bone.parent].extent);
+
+			rotation = Mat4::angle_axis(bone.pose.z, z) *
+					   Mat4::angle_axis(bone.pose.y, y) *
+				       Mat4::angle_axis(bone.pose.x, x);
+
+			location = current[bone.parent] * translation * rotation;
+		}
+
+		current.emplace_back(location);
+	}
+	assert(current.size() == bones.size());
+	return current;
 }
 
 std::vector< Vec3 > Skeleton::gradient_in_current_pose() const {

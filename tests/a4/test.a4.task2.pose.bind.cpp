@@ -33,6 +33,8 @@ Test test_a4_task2_pose_bind_simple("a4.task2.pose.bind.simple", []() {
     std::vector<Mat4> actual = skeleton.bind_pose();
 
 	if (Test::differs(expected[0], actual[0])) {
+		std::cout << "expected: " << expected[0] << std::endl;
+		std::cout << "actual: " << actual[0] << std::endl;
 		throw Test::error("Test failed on the root!");
 	}
 	if (Test::differs(expected[1], actual[1])) {
