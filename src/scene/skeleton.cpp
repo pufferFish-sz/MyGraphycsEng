@@ -116,10 +116,62 @@ std::vector< Vec3 > Skeleton::gradient_in_current_pose() const {
 
 	//The IK energy is the sum over all *enabled* handles of the squared distance from the tip of Handle::bone to Handle::target
 	std::vector< Vec3 > gradient(bones.size(), Vec3{0.0f, 0.0f, 0.0f});
-
+	std::vector< Mat4 > poses = current_pose();
+	Mat4 transform = Mat4::I; // Accumulated transformation matrix
+	Mat4 prev_transform;
 	//TODO: loop over handles and over bones in the chain leading to the handle, accumulating gradient contributions.
 	//remember bone.compute_rotation_axes() -- should be useful here, too!
+	for (auto& handle : handles) {
+		if (!handle.enabled) continue; // skip disabled handles
 
+		Vec3 h = handle.target; // target position
+		Vec3 p;                 // tip position of the handle's associated bone
+
+		// walk up the kinematic chain to compute gradients
+		for (BoneIndex b = handle.bone; b != -1U; b = bones[b].parent) {
+			const Bone& bone = bones[b];
+
+			// compute local axes
+			Vec3 x, y, z;
+			bone.compute_rotation_axes(&x, &y, &z);
+			
+			if (bone.parent == -1U) {
+				transform = Mat4::translate(base + base_offset);
+			}
+			else {
+				transform = poses[bone.parent] * Mat4::translate(bones[bone.parent].extent);
+			}
+
+			// save transform up to, but not including current bone
+			prev_transform = transform;
+
+			Mat4 rotation =
+				Mat4::angle_axis(bone.pose.z, z) *
+				Mat4::angle_axis(bone.pose.y, y) *
+				Mat4::angle_axis(bone.pose.x, x);
+
+			transform = transform * rotation;
+
+			Vec3 r = prev_transform * Vec3(0,0,0);
+
+			// compute transformed axes in skeleton-local space
+			Vec3 y_axis = (prev_transform * Mat4::angle_axis(bone.pose.z, z)).rotate(y);
+			Vec3 x_axis = (prev_transform * Mat4::angle_axis(bone.pose.z, z) * Mat4::angle_axis(bone.pose.y, y)).rotate(x);
+			Vec3 z_axis = prev_transform.rotate(z);
+
+			if (b == handle.bone) {
+				p = transform * bone.extent;
+			}
+
+			// gradient contributions using cross product
+			Vec3 diff = p - h; // vector to target
+			Vec3 relative_tip = p - r; // tip relative to bone origin
+
+			gradient[b].x += dot(cross(x_axis, relative_tip), diff);
+			gradient[b].y += dot(cross(y_axis, relative_tip), diff);
+			gradient[b].z += dot(cross(z_axis, relative_tip), diff);
+		}
+	}
 	assert(gradient.size() == bones.size());
 	return gradient;
 }
@@ -131,6 +183,78 @@ bool Skeleton::solve_ik(uint32_t steps) {
 	
 	//call gradient_in_current_pose() to compute d loss / d pose
 	//add ...
+	auto compute_loss = [&]() -> float {
+		float loss = 0.0f;
+		std::vector<Mat4> poses = current_pose();
+		for (const auto& handle : handles) {
+			if (!handle.enabled) continue;
+
+			Mat4 transform = Mat4::I;
+			for (BoneIndex b = handle.bone; b != -1U; b = bones[b].parent) {
+				const Bone& bone = bones[b];
+				Vec3 x, y, z;
+				bone.compute_rotation_axes(&x, &y, &z);
+
+				if (bone.parent == -1U) {
+					transform = Mat4::translate(base + base_offset);
+				}
+				else {
+					transform = poses[bone.parent] * Mat4::translate(bones[bone.parent].extent);
+				}
+
+				Mat4 rotation =
+					Mat4::angle_axis(bone.pose.z, z) *
+					Mat4::angle_axis(bone.pose.y, y) *
+					Mat4::angle_axis(bone.pose.x, x);
+
+				transform = transform * rotation;
+			}
+			Vec3 tip = transform * bones[handle.bone].extent;
+			Vec3 diff = tip - handle.target;
+			loss += 0.5f * dot(diff, diff); // Use squared distance
+		}
+		return loss;
+		};
+
+	// gradient descent loop
+	std::vector<Vec3> pose_prev(bones.size()); // Store the previous pose
+	std::vector<Vec3> pose_curr(bones.size()); // Current pose
+
+	// Initialize previous and current poses from bones
+	for (size_t i = 0; i < bones.size(); i++) {
+		pose_prev[i] = bones[i].pose;
+		pose_curr[i] = pose_prev[i];
+	}
+
+	for (uint32_t step = 0; step < steps; step++) {
+		float loss_prev = compute_loss();
+		/*std::cout << "loss_prev " << loss_prev << std::endl;
+		std::cout << "at step " << step << std::endl;*/
+		std::vector<Vec3> gradient = gradient_in_current_pose(); // Compute gradient
+		float step_size = 1.0f; // Initial step size
+		float loss_trial = 0.0f;
+
+		// gradient descent with backtracking line search
+		do {
+			// update poses using gradient descent
+			for (size_t i = 0; i < bones.size(); i++) {
+				pose_curr[i] = pose_prev[i] - step_size * gradient[i];
+				bones[i].pose = pose_curr[i];
+			}
+
+			loss_trial = compute_loss(); // Recompute loss with updated pose
+			step_size /= 2.0f; // Reduce step size if loss increased
+			//std::cout << "loss trial: " << loss_trial << " loss_prev" << loss_prev << std::endl;
+		} while (loss_trial > loss_prev);
+
+		// check for convergence
+		if (step > 10 && std::abs(loss_prev - loss_trial) < 1e-5f) {
+			return true; 
+		}
+
+		// update pose_prev for the next iteration
+		pose_prev = pose_curr;
+	}
 
 	//if at a local minimum (e.g., gradient is near-zero), return 'true'.
 	//if run through all steps, return `false`.
