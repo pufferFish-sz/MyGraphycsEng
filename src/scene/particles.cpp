@@ -6,19 +6,63 @@ bool Particles::Particle::update(const PT::Aggregate &scene, Vec3 const &gravity
 	//A4T4: particle update
 
 	// Compute the trajectory of this particle for the next dt seconds.
-
+	float remaining_time = dt;
+	//std::cout << "velocity: " << velocity << " gravity: " << gravity << std::endl;
 	// (1) Build a ray representing the particle's path as if it travelled at constant velocity.
+	while (remaining_time > 0.0f) {
+		Ray ray;
+		ray.point = position;
+		ray.dir = velocity.unit();
+		ray.dist_bounds = Vec2(EPS_F, velocity.norm() * age);
 
-	// (2) Intersect the ray with the scene and account for collisions. Be careful when placing
-	// collision points using the particle radius. Move the particle to its next position.
+		// (2) Intersect the ray with the scene and account for collisions. Be careful when placing
+		// collision points using the particle radius. Move the particle to its next position.
+		PT::Trace trace = scene.hit(ray);
 
-	// (3) Account for acceleration due to gravity after updating position.
+		if (trace.hit) {
+			//std::cout << "there is a hit!!!" << "ray.dir " << ray.dir << "trace.normal " << trace.normal << std::endl;
+			float cos_theta = dot(ray.dir, trace.normal); 
+			float adjusted_dist = trace.distance - radius / std::abs(cos_theta);
+			//std::cout <<"cos_theta: " << cos_theta << "adjusted_dist " << adjusted_dist << std::endl;
 
-	// (4) Repeat until the entire time step has been consumed.
+			if (adjusted_dist < 0.0f) {
+				// negative adjusted dist (particle already intersecting)
+				// reflect velocity about the collision normal
+				velocity -= 2.0f * dot(velocity, trace.normal) * trace.normal;
+				//velocity += gravity * remaining_time;
+				continue;
+			}
+			// collision within timestep
+			if (adjusted_dist <= velocity.norm() * remaining_time) {
+				//std::cout << "within timestep!!!" << std::endl;
+				float collision_time = adjusted_dist / velocity.norm();
+
+				position += std::max(0.0f, collision_time) * velocity;
+
+				velocity -= 2.0f * dot(velocity, trace.normal) * trace.normal;
+				velocity += gravity * collision_time;
+				remaining_time -= collision_time;
+			}
+			else {
+				//std::cout << "after current time step!!!" << std::endl;
+				position += velocity * remaining_time;
+				velocity += gravity * remaining_time;
+				remaining_time = 0.0f;
+			}
+		}
+		else {
+			// no collision, move particle for remaining time
+			position += velocity * remaining_time;
+			velocity += gravity * remaining_time;
+			remaining_time = 0.0f;
+		}
+		// (4) Repeat until the entire time step has been consumed.
+	}
 
 	// (5) Decrease the particle's age and return 'false' if it should be removed.
+	age -= dt;
 
-	return false;
+	return age > 0.0f;
 }
 
 void Particles::advance(const PT::Aggregate& scene, const Mat4& to_world, float dt) {

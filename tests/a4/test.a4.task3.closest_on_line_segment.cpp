@@ -22,6 +22,7 @@ Test test_a4_task3_closest_point_on_line_segment_same_direction_before_start(
 
 		Vec3 expected = Vec3(1, 1, 1);
 		Vec3 actual = Skeleton::closest_point_on_line_segment(start, end, point);
+		//std::cout << "expected pt: " << expected << " actual pt: " << actual << std::endl;
 		if (Test::differs(expected, actual)) {
 			throw Test::error("The closest point should be the start point!");
 		}
@@ -35,6 +36,7 @@ Test test_a4_task3_closest_point_on_line_segment_same_direction_after_end(
 
 		Vec3 expected = Vec3(2, 2, 2);
 		Vec3 actual = Skeleton::closest_point_on_line_segment(start, end, point);
+		//std::cout << "expected pt: " << expected << " actual pt: " << actual << std::endl;
 		if (Test::differs(expected, actual)) {
 			throw Test::error("The closest point should be the end point!");
 		}

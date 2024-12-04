@@ -35,7 +35,6 @@ void Skeleton::Bone::compute_rotation_axes(Vec3 *x_, Vec3 *y_, Vec3 *z_) const {
 	// z = cross(x,y);
 	std::tie(x, z) = std::make_pair(cr * x + sr * -z, cr * z + sr * x);
 }
-
 std::vector< Mat4 > Skeleton::bind_pose() const {
 	//A4T2a: bone-to-skeleton transformations in the bind pose
 	//(the bind pose does not rotate by Bone::pose)
@@ -62,6 +61,7 @@ std::vector< Mat4 > Skeleton::bind_pose() const {
 	assert(bind.size() == bones.size()); //should have a transform for every bone.
 	return bind;
 }
+
 
 std::vector< Mat4 > Skeleton::current_pose() const {
     //A4T2a: bone-to-skeleton transformations in the current pose
@@ -267,8 +267,24 @@ Vec3 Skeleton::closest_point_on_line_segment(Vec3 const &a, Vec3 const &b, Vec3 
     // Return the closest point to 'p' on the line segment from a to b
 
 	//Efficiency note: you can do this without any sqrt's! (no .unit() or .norm() is needed!)
+	Vec3 ap = p - a;
+	Vec3 ab = b - a;
+	Vec3 ret;
 
-    return Vec3{};
+	float t = dot(ap, ab) / dot(ab, ab);
+
+	// edge cases
+	if (t <= 0) { // if point is before start
+		ret = a;
+	}
+	else if (t >= 1) { // if point is after end
+		ret = b;
+	}
+	else {
+		ret = a + ab * t; // in between
+	}
+
+    return ret;
 }
 
 void Skeleton::assign_bone_weights(Halfedge_Mesh *mesh_) const {
@@ -279,10 +295,47 @@ void Skeleton::assign_bone_weights(Halfedge_Mesh *mesh_) const {
 	//A4T3: bone weight computation
 
 	//visit every vertex and **set new values** in Vertex::bone_weights (don't append to old values)
-
 	//be sure to use bone positions in the bind pose (not the current pose!)
-
 	//you should fill in the helper closest_point_on_line_segment() before working on this function
+	
+	std::vector< Mat4 > poses = bind_pose();
+
+	for (auto& vertex : mesh.vertices) {
+
+		float weight_sum = 0.0f;
+
+		for (auto& bone_weight : vertex.bone_weights) {
+			const Bone& bone = bones[bone_weight.bone];
+
+			if (bone.parent == -1U) continue;
+
+			Vec3 y, x, z;
+			bones[bone.parent].compute_rotation_axes(&x, &y, &z); // Axes for the parent bone
+
+			// start and end points of the bone in the bind pose
+			Vec3 bone_start = poses[bone.parent] * bones[bone.parent].extent;
+			Vec3 bone_end = poses[bone_weight.bone] * bone.extent;
+			Vec3 closest_point = closest_point_on_line_segment(bone_start, bone_end, vertex.position);
+
+			float dist = (vertex.position - closest_point).norm();
+			float new_weight = std::max(0.0f, bone.radius - dist) / bone.radius;
+
+			// assign the weight if it is non-zero
+			if (new_weight > 0.0f) {
+				bone_weight.weight = new_weight;
+				weight_sum += new_weight;
+			}
+		}
+
+		// normalize weights
+		if (weight_sum > 0.0f) {
+			for (auto& weights : vertex.bone_weights) {
+				if (weights.weight > 0.0f) {
+					weights.weight /= weight_sum;
+				}
+			}
+		}
+	}
 
 }
 
@@ -304,11 +357,16 @@ Indexed_Mesh Skeleton::skin(Halfedge_Mesh const &mesh, std::vector< Mat4 > const
 	skinned_normals.reserve(mesh.halfedges.size());
 
 	//(you will probably want to precompute some bind-to-current transformation matrices here)
-
+	
 	for (auto vi = mesh.vertices.begin(); vi != mesh.vertices.end(); ++vi) {
 		skinned_positions.emplace(vi, vi->position); //PLACEHOLDER! Replace with code that computes the position of the vertex according to vi->position and vi->bone_weights.
 		//NOTE: vertices with empty bone_weights should remain in place.
+	/*	if (vi->bone_weights.size() == 0) {
+			skinned_positions.emplace(vi, vi->position);
+		}
+		else {
 
+		}*/
 		//circulate corners at this vertex:
 		auto h = vi->halfedge;
 		do {
