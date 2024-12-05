@@ -1,6 +1,7 @@
 #include "test.h"
 #include "geometry/util.h"
 #include "scene/skeleton.h"
+#include <iostream>
 
 std::optional<std::pair<std::string, size_t>> compareVerts(std::vector<Indexed_Mesh::Vert> expected,
                                                            std::vector<Indexed_Mesh::Vert> actual) {
@@ -10,9 +11,11 @@ std::optional<std::pair<std::string, size_t>> compareVerts(std::vector<Indexed_M
 
 	for (int32_t i = 0; i < (int32_t)expected.size(); i++) {
 		if (Test::differs(expected[i].pos, actual[i].pos)) {
+            std::cout << "expected pos: " << expected[i].pos << " actual pos: " << actual[i].pos << std::endl;
 			return std::pair{"Vertex positions differ", i};
 		}
         if(Test::differs(expected[i].norm, actual[i].norm)) {
+            std::cout << "expected norm: " << expected[i].norm<< " actual norm: " << actual[i].norm << std::endl;
 			return std::pair{"Vertex normals differ", i};
         }
 	}
@@ -184,6 +187,7 @@ Test test_a4_task3_skin_cylinder_root("a4.task3.skin.cylinder.root", []() {
                         {Vec3(0.433013f, 0.250000f, 0.000000f), Vec3(0.500000f, -0.866025f, 0.000000f), Vec2(0.000000f, 0.000000f), 286},
                         {Vec3(0.375000f, 0.216506f, -0.250000f), Vec3(0.500000f, -0.866025f, 0.000000f), Vec2(0.000000f, 0.000000f), 286}};
 	if (auto diff = compareVerts(expected_vertices, actual.vertices())) {
+
 		throw Test::error(test_case + "Test failed: " + diff.value().first + " at vertex " +
 		                  std::to_string(diff.value().second));
 	}
