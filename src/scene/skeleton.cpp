@@ -307,13 +307,8 @@ void Skeleton::assign_bone_weights(Halfedge_Mesh *mesh_) const {
 		for (auto& bone_weight : vertex.bone_weights) {
 			const Bone& bone = bones[bone_weight.bone];
 
-			if (bone.parent == -1U) continue;
-
-			Vec3 y, x, z;
-			bones[bone.parent].compute_rotation_axes(&x, &y, &z); // Axes for the parent bone
-
 			// start and end points of the bone in the bind pose
-			Vec3 bone_start = poses[bone.parent] * bones[bone.parent].extent;
+			Vec3 bone_start = poses[bone_weight.bone] * Vec3(0.0f);
 			Vec3 bone_end = poses[bone_weight.bone] * bone.extent;
 			Vec3 closest_point = closest_point_on_line_segment(bone_start, bone_end, vertex.position);
 
