@@ -12,46 +12,59 @@ AndrewID: shangyiz
 
 (##) A4T1 CHECKPOINT
 
-You do not need any screenshots for this task. 
+You do not need any screenshots for this task.
 
-Your completion will be graded based on the reference `test.a4.task1.cpp` file and 
+Your completion will be graded based on the reference `test.a4.task1.cpp` file and
 checking that the spline interpolation looks correct.
 
 (##) A4T2 CHECKPOINT
 
-You do not need any screenshots for this task. 
+You do not need any screenshots for this task.
 
-Your completion will be graded based on the reference `test.a4.task2.*.cpp` files and 
+Your completion will be graded based on the reference `test.a4.task2.*.cpp` files and
 checking that moving the bones works correctly and IK is functional.
 
 (##) A4T3 FINAL
 
-You do not need any screenshots for this task. 
+You do not need any screenshots for this task.
 
-Your completion will be graded based on the reference `test.a4.task3.*.cpp` files and 
+Your completion will be graded based on the reference `test.a4.task3.*.cpp` files and
 checking that the skeleton moves correctly when the bones are moved.
 
 (##) A4T4 FINAL
 
-Do you want to use the reference A3T2 solutions for this task: no (yes/no)
+Do you want to use the reference A3T2 solutions for this task: yes (yes/no)
 
-You do not need any screenshots for this task. 
+You do not need any screenshots for this task.
 
 There is no leak, but occasionally some particles peak a little from the left plane in the particles scene.
 I went to OH on Tuesday and David said that the code logic looks solid and the particle simulation is acceptable.
 
-Your completion will be graded based on the reference `test.a4.task4.*.cpp` files and 
+Your completion will be graded based on the reference `test.a4.task4.*.cpp` files and
 checking that particle simulation behaves correctly and does not go through any surface.
 
 (##) ANIMATED VIDEO FINAL
 
 Your animation:
+<!--<div class="twentytwenty-container">
+    <img src="A4-writeup/reference/Snowman.mp4" alt="Snowman">
+</div>-->
 <div class="twentytwenty-container">
-    <img src="A4-writeup/reference/animation.mov" alt="Your creation">
+    <video controls>
+        <source src="A4-writeup/reference/Snowman.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
 </div>
 Explanation of what it is and how you made it:
+I made the snowman in the Scotty3D
 
 Any free model sources you need to credit?
+
+environmental lighting:
+https://polyhaven.com/a/snowy_forest_path_01
+
+hamburger:
+Hamburger by jeremy [CC-BY] via Poly Pizza
 
 (##) EXTRA CREDIT FINAL
 
@@ -62,13 +75,20 @@ Use this section to explain any extra credit implementations you have made.
 Use this section to provide feedback about the assignment.
 
 <!--- Markdeep & image comparison library - probably no need to change anything below -->
-<style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style>
-<script src="resources/markdeep.min.js"></script><script>window.alreadyProcessedMarkdeep||(document.body.style.visibility="visible")</script>
+<style class="fallback">
+    body {
+        visibility: hidden;
+        white-space: pre;
+        font-family: monospace
+    }
+</style>
+<script src="resources/markdeep.min.js"></script>
+<script>window.alreadyProcessedMarkdeep || (document.body.style.visibility = "visible")</script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
 <script src="resources/jquery.event.move.js"></script>
 <script src="resources/jquery.twentytwenty.js"></script>
 <link href="resources/offcanvas.css" rel="stylesheet">
 <link href="resources/twentytwenty.css" rel="stylesheet" type="text/css" />
 <script>
-$(window).load(function(){$(".twentytwenty-container").twentytwenty({default_offset_pct: 0.5});});
+    $(window).load(function () { $(".twentytwenty-container").twentytwenty({ default_offset_pct: 0.5 }); });
 </script>

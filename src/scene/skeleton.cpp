@@ -361,7 +361,7 @@ Indexed_Mesh Skeleton::skin(Halfedge_Mesh const &mesh, std::vector< Mat4 > const
 		//skinned_positions.emplace(vi, vi->position); //PLACEHOLDER! Replace with code that computes the position of the vertex according to vi->position and vi->bone_weights.
 		//NOTE: vertices with empty bone_weights should remain in place.
 		if (vi->bone_weights.empty()) {
-			Mat4 trans = bind_to_current[0];
+			Mat4 trans = bind_to_current.size() > 0 ? bind_to_current[0] : Mat4::I;
 			Vec3 skinned_pos = trans * vi->position;
 			skinned_positions.emplace(vi, skinned_pos);
 			//std::cout << "for vertex vi : " << skinned_pos << "this is bone weight empty case" << std::endl;
@@ -386,7 +386,9 @@ Indexed_Mesh Skeleton::skin(Halfedge_Mesh const &mesh, std::vector< Mat4 > const
 				//std::cout << "the corner normal is : " << h->corner_normal << std::endl;
 				if (vi->bone_weights.empty()) {
 					// Use the root bone's transformation matrix to transform the normal
-					Mat4 inv_transpose = Mat4::transpose(bind_to_current[0].inverse());
+					Mat4 inv_transpose = bind_to_current.size() > 0
+						? Mat4::transpose(bind_to_current[0].inverse())
+						: Mat4::I;
 					Vec3 transformed_normal = (inv_transpose * h->corner_normal).unit();
 					skinned_normals.emplace(h, transformed_normal);
 					//std::cout << " empty case, emplaced : " << transformed_normal << std::endl;
